@@ -1,0 +1,25 @@
+project:
+  name: local-3d-room-mapper
+  description: Local hosted web app for video-based 3D room/object reconstruction.
+  owner_profile: technical_power_user_windows
+
+product:
+  goal: Build a local web app that imports video and generates a simple 3D map using Gaussian Splatting or NeRF-style reconstruction.
+  non_goals_v1:
+    - native_android_app
+    - cloud_processing
+    - multi_user
+    - realtime_slam
+
+technical_decisions:
+  app_type: local_hosted_webapp
+  runtime: windows_native_first
+  backend: python_fastapi
+  frontend: react_typescript_vite
+  reconstruction: gaussian_splatting_or_nerf_first
+  viewer:
+    browser: threejs
+    desktop_debug: open3d_optional
+  exports: [ply, glb]
+  storage: local_project_folders
+  privacy: local_only
