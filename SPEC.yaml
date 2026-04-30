@@ -1,6 +1,28 @@
 project:
   name: local-3d-room-mapper
   description: Local hosted web app for video-based 3D room/object reconstruction.
+  owner_profile: technical_power_user_windows
+
+product:
+  goal: Build a local web app that imports video and generates a simple 3D map using Gaussian Splatting or NeRF-style reconstruction.
+  target_users:
+    - technical_owner
+    - open_source_experimenters
+  primary_workflow:
+    - create_project
+    - import_video
+    - extract_frames
+    - run_reconstruction
+    - inspect_result
+    - export_result
+  non_goals_v1:
+    - native_android_app
+    - cloud_processing
+    - multi_user
+    - realtime_slam
+    - construction_grade_measurement
+    - kinect_required
+    - production_auth
 
 technical_decisions:
   app_type: local_hosted_webapp
@@ -8,4 +30,56 @@ technical_decisions:
   backend: python_fastapi
   frontend: react_typescript_vite
   reconstruction: gaussian_splatting_or_nerf_first
-  exports: [ply, glb]
+  viewer:
+    browser: threejs
+    desktop_debug: open3d_optional
+  input_v1:
+    - video_file
+  input_future:
+    - webcam_stream
+    - phone_shared_webcam
+    - android_companion_app
+    - kinect_plugin
+  exports:
+    - ply
+    - glb
+  storage: local_project_folders
+  privacy: local_only
+
+quality_targets:
+  reconstruction_quality: visually_useful_roughly_measurable
+  performance_v1: best_effort_local
+  startup: backend_and_frontend_start_on_windows
+  reliability: fail_with_actionable_errors
+
+project_storage_contract:
+  root: configurable_data_directory
+  structure:
+    input: source_videos
+    frames: extracted_frames
+    reconstruction: intermediate_and_generated_3d_data
+    exports: user_downloadable_outputs
+    metadata: project_and_job_metadata
+
+artifact_types:
+  point_cloud_ply:
+    description: Conventional colored point cloud if produced by pipeline.
+  splat_ply:
+    description: Gaussian splat data stored in PLY-like format; not equivalent to conventional point cloud.
+  glb:
+    description: Portable 3D scene/mesh container; availability depends on conversion path.
+
+validation:
+  backend:
+    - python -m pytest backend/tests
+  pipeline:
+    - python -m pytest pipeline/tests
+  frontend:
+    - npm --prefix frontend run build
+  full_smoke:
+    - create project
+    - import tiny video
+    - extract frames
+    - create reconstruction job
+    - produce labeled placeholder or real artifact
+    - load viewer
