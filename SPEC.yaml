@@ -1,0 +1,11 @@
+project:
+  name: local-3d-room-mapper
+  description: Local hosted web app for video-based 3D room/object reconstruction.
+
+technical_decisions:
+  app_type: local_hosted_webapp
+  runtime: windows_native_first
+  backend: python_fastapi
+  frontend: react_typescript_vite
+  reconstruction: gaussian_splatting_or_nerf_first
+  exports: [ply, glb]
