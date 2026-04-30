@@ -1,0 +1,1 @@
+Placeholder sample project notes.
