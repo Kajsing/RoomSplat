@@ -13,6 +13,7 @@ def test_artifact_listing_labels_reconstruction_and_debug_files(tmp_path, monkey
     project_dir = tmp_path / project["id"]
 
     (project_dir / "reconstruction" / "pointcloud.ply").write_text(_tiny_ply(), encoding="utf-8")
+    (project_dir / "reconstruction" / "sparse-point-cloud.ply").write_text(_tiny_ply(), encoding="utf-8")
     (project_dir / "reconstruction" / "splat.ply").write_text(_tiny_ply(), encoding="utf-8")
     (project_dir / "reconstruction" / "debug-frame-room.ply").write_text(_tiny_ply(), encoding="utf-8")
     (project_dir / "exports" / "result.glb").write_bytes(b"glTF")
@@ -29,6 +30,7 @@ def test_artifact_listing_labels_reconstruction_and_debug_files(tmp_path, monkey
     assert labels == {
         "reconstruction/debug-frame-room.ply": "debug_frame_cloud_ply",
         "reconstruction/pointcloud.ply": "point_cloud_ply",
+        "reconstruction/sparse-point-cloud.ply": "point_cloud_ply",
         "reconstruction/splat.ply": "splat_ply",
         "exports/result.glb": "mesh_glb",
         "metadata/reconstruction_spike.json": "debug_report",
@@ -81,6 +83,37 @@ def test_debug_frame_cloud_metadata_endpoint_returns_404_when_missing(tmp_path, 
     project = client.post("/projects", json={"name": "No debug cloud metadata"}).json()
 
     response = client.get(f"/projects/{project['id']}/debug-frame-cloud")
+
+    assert response.status_code == 404
+
+
+def test_reconstruction_metadata_endpoint_returns_metadata(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "Reconstruction metadata"}).json()
+    project_dir = tmp_path / project["id"]
+    payload = {
+        "project_id": project["id"],
+        "artifact_type": "point_cloud_ply",
+        "mode": "reconstruction",
+        "reconstruction_type": "sparse_point_cloud",
+        "is_reconstruction": True,
+        "not_reconstruction": False,
+    }
+    (project_dir / "metadata" / "reconstruction.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    response = client.get(f"/projects/{project['id']}/reconstruction")
+
+    assert response.status_code == 200
+    assert response.json() == payload
+
+
+def test_reconstruction_metadata_endpoint_returns_404_when_missing(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "No reconstruction metadata"}).json()
+
+    response = client.get(f"/projects/{project['id']}/reconstruction")
 
     assert response.status_code == 404
 

@@ -6,6 +6,7 @@ from app.models.schemas import ArtifactListResponse, ExportCreateRequest, Export
 from app.services.debug_frame_cloud import DebugFrameCloudService
 from app.services.export_service import ArtifactService, ArtifactServiceError, ExportService
 from app.services.project_store import ProjectStore
+from app.services.reconstruction_jobs import ReconstructionService
 
 router = APIRouter(tags=["artifacts", "exports"])
 
@@ -20,6 +21,11 @@ def get_export_service() -> ExportService:
 
 def get_debug_frame_cloud_service() -> DebugFrameCloudService:
     return DebugFrameCloudService(ProjectStore(get_config().data_dir))
+
+
+def get_reconstruction_service() -> ReconstructionService:
+    config = get_config()
+    return ReconstructionService(ProjectStore(config.data_dir), colmap_path=config.colmap_path)
 
 
 @router.get("/projects/{project_id}/artifacts", response_model=ArtifactListResponse)
@@ -43,6 +49,14 @@ def download_artifact(project_id: str, artifact_id: str) -> FileResponse:
 def get_debug_frame_cloud_metadata(project_id: str) -> dict:
     try:
         return get_debug_frame_cloud_service().read_metadata(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/projects/{project_id}/reconstruction")
+def get_reconstruction_metadata(project_id: str) -> dict:
+    try:
+        return get_reconstruction_service().read_metadata(project_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

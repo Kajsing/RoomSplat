@@ -41,4 +41,23 @@ node --experimental-strip-types --test frontend/tests/*.test.ts
 
 The app must not present placeholder reconstruction output as real reconstruction. Missing external reconstruction dependencies should produce clear, actionable messages.
 
+## Real Reconstruction Preview v1
+
+Focused validation for the COLMAP-backed point-cloud preview:
+
+```bash
+python -m pytest backend/tests/test_jobs.py backend/tests/test_artifacts.py pipeline/tests/test_colmap_sparse_runner.py
+node --experimental-strip-types --test frontend/tests/*.test.ts
+npm --prefix frontend run build
+```
+
+Manual/browser checks:
+
+- Verify `reconstruct_point_cloud` fails with a clear COLMAP setup message when `colmap.exe` is not available.
+- When COLMAP is installed, use a project with extracted frames and run `reconstruct_point_cloud`.
+- Confirm `reconstruction/sparse-point-cloud.ply` is listed as `point_cloud_ply`.
+- Confirm `metadata/reconstruction.json` reports `mode: reconstruction`, `is_reconstruction: true`, registered frame count, sparse point count, and quality status.
+- Confirm debug frame planes still show an explicit not-reconstruction warning.
+- Confirm the Three.js canvas is nonblank, fit/reset/orbit/zoom/point-size/color controls work, and artifact switching keeps debug and real outputs distinct.
+
 Security baseline checks should cover path containment for project IDs, uploads, frame extraction sources, job paths, artifact IDs, artifact listing/downloads, and export outputs.

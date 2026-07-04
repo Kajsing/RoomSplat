@@ -267,13 +267,15 @@ def _description(artifact_type: ArtifactType, relative_path: Path | None = None)
         return "Placeholder export for workflow/debug testing. This is not a real reconstruction."
 
     descriptions = {
-        "debug_frame_cloud_ply": "Frame Room Cloud viewer/debug point cloud sampled from extracted frames. This is not a reconstruction.",
+        "debug_frame_cloud_ply": "Debug frame planes sampled from extracted frames and placed in 3D for viewer inspection. This is not a reconstruction.",
         "point_cloud_ply": "Conventional point-cloud PLY. This is not Gaussian splat data unless explicitly labeled as splat_ply.",
         "splat_ply": "Gaussian splat PLY-like artifact. This is not a conventional point cloud.",
         "mesh_glb": "Portable GLB scene or mesh artifact. Browser rendering requires GLB viewer support.",
         "debug_report": "Reconstruction spike/debug report. This is not a reconstructed 3D artifact.",
         "unsupported": "Unsupported artifact type.",
     }
+    if artifact_type == "point_cloud_ply" and relative_path and relative_path.name == "sparse-point-cloud.ply":
+        return "Sparse COLMAP point-cloud reconstruction. This is conventional point geometry, not Gaussian splat data."
     return descriptions[artifact_type]
 
 

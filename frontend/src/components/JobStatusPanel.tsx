@@ -51,6 +51,21 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
     }
   }
 
+  async function handlePointCloudReconstruction() {
+    if (!project) return
+    setError(null)
+    setIsStarting(true)
+    try {
+      const job = await createJob(project.id, 'reconstruct_point_cloud', {})
+      onJobChange(job)
+      setJobs((currentJobs) => upsertJob(currentJobs, job))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not start point cloud reconstruction')
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
   return (
     <section style={sectionStyle}>
       <div>
@@ -58,9 +73,14 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
         <p style={mutedStyle}>{project ? project.name : 'Select a project'}</p>
       </div>
 
-      <button disabled={!project || isStarting} onClick={handleReconstructionSpike} style={buttonStyle} type="button">
-        {isStarting ? 'Starting...' : 'Run reconstruction spike'}
-      </button>
+      <div style={buttonRowStyle}>
+        <button disabled={!project || isStarting} onClick={handlePointCloudReconstruction} style={buttonStyle} type="button">
+          {isStarting ? 'Starting...' : 'Run point cloud reconstruction'}
+        </button>
+        <button disabled={!project || isStarting} onClick={handleReconstructionSpike} style={secondaryButtonStyle} type="button">
+          Run reconstruction spike
+        </button>
+      </div>
 
       {activeJob ? (
         <div style={activeJobStyle}>
@@ -100,6 +120,7 @@ function formatJobType(jobType: Job['job_type']) {
     frame_extraction: 'Frame extraction',
     reconstruction_spike: 'Reconstruction spike',
     debug_frame_cloud: 'Debug 3D preview',
+    reconstruct_point_cloud: 'Point cloud reconstruction',
   }
   return labels[jobType]
 }
@@ -110,6 +131,9 @@ function summarizeResult(job: Job) {
   }
   if (job.job_type === 'debug_frame_cloud') {
     return `${job.result?.sampled_points ?? '?'} debug points`
+  }
+  if (job.job_type === 'reconstruct_point_cloud') {
+    return `${job.result?.ply_point_count ?? '?'} points, ${job.result?.registered_frame_count ?? '?'} registered frames`
   }
   return String(job.result?.status ?? 'report ready')
 }
@@ -138,6 +162,20 @@ const buttonStyle = {
   background: '#1f883d',
   color: '#ffffff',
   fontWeight: 700,
+  marginBottom: 16,
+} satisfies CSSProperties
+
+const secondaryButtonStyle = {
+  ...buttonStyle,
+  background: '#ffffff',
+  border: '1px solid #d0d7de',
+  color: '#24292f',
+} satisfies CSSProperties
+
+const buttonRowStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
   marginBottom: 16,
 } satisfies CSSProperties
 

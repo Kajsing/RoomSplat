@@ -12,6 +12,8 @@ import pytest
 from app.config import AppConfig
 from app.main import app
 from app.services.debug_frame_cloud import DebugFrameCloudService
+import app.services.reconstruction_jobs as reconstruction_jobs
+from pipeline.adapters.colmap_sparse_runner import ColmapRunResult
 from app.services.job_store import JobStore
 from app.services.project_store import ProjectStore
 from app.services.video_import import VideoImportService
@@ -180,7 +182,7 @@ def test_worker_rejects_debug_frame_cloud_without_extracted_frames(tmp_path) -> 
     completed = worker.run_job(project.id, job.id)
 
     assert completed.status == "failed"
-    assert completed.error == "No extracted frames metadata was found. Extract frames before creating a debug 3D preview."
+    assert completed.error == "No extracted frames metadata was found. Extract frames before creating debug frame planes."
 
 
 def test_worker_rejects_debug_frame_cloud_frames_dir_outside_project(tmp_path) -> None:
@@ -213,6 +215,108 @@ def test_worker_rejects_reconstruction_frames_dir_outside_project(tmp_path) -> N
 
     assert completed.status == "failed"
     assert completed.error == "Job path escaped the project directory."
+
+
+def test_worker_rejects_point_cloud_reconstruction_without_extracted_frames(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("No point cloud frames")
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "reconstruct_point_cloud", {})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path, colmap_path=str(tmp_path / "colmap.exe")))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "failed"
+    assert completed.error == "No extracted frames metadata was found. Extract frames before running point cloud reconstruction."
+
+
+def test_worker_reports_missing_colmap_for_point_cloud_reconstruction(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Missing COLMAP")
+    project_dir = tmp_path / project.id
+    _write_frames(project_dir / "frames", count=3)
+    _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=3)
+    missing_colmap = tmp_path / "missing-colmap.exe"
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "reconstruct_point_cloud", {})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path, colmap_path=str(missing_colmap)))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "failed"
+    assert completed.error == f"Configured COLMAP executable was not found: {missing_colmap}"
+
+
+def test_worker_runs_point_cloud_reconstruction_job_with_mocked_colmap(tmp_path, monkeypatch) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Point cloud")
+    project_dir = tmp_path / project.id
+    _write_frames(project_dir / "frames", count=4)
+    _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=4)
+
+    class FakeRunner:
+        def __init__(self, executable: str | None = None) -> None:
+            self.executable = executable or "fake-colmap"
+
+        def run(self, frames_dir, workspace_dir, output_ply, *, matcher, use_gpu):
+            assert frames_dir == project_dir / "frames"
+            assert workspace_dir.resolve().relative_to(project_dir.resolve())
+            assert output_ply == project_dir / "reconstruction" / "sparse-point-cloud.ply"
+            assert matcher == "sequential"
+            assert use_gpu is True
+            output_ply.write_text(_tiny_ply(point_count=64), encoding="utf-8")
+            return ColmapRunResult(
+                executable=self.executable,
+                matcher=matcher,
+                use_gpu=use_gpu,
+                workspace_dir=workspace_dir,
+                output_ply=output_ply,
+                registered_image_count=4,
+                sparse_point_count=64,
+                ply_point_count=64,
+                command_count=5,
+            )
+
+    monkeypatch.setattr(reconstruction_jobs, "ColmapSparseReconstructionRunner", FakeRunner)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "reconstruct_point_cloud", {"matcher": "sequential", "use_gpu": True})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path, colmap_path="fake-colmap"))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "succeeded"
+    assert completed.result is not None
+    assert completed.result["artifact_type"] == "point_cloud_ply"
+    assert completed.result["mode"] == "reconstruction"
+    assert completed.result["is_reconstruction"] is True
+    assert completed.result["not_reconstruction"] is False
+    assert completed.result["debug"] is False
+    assert completed.result["placeholder"] is False
+    assert completed.result["input_frame_count"] == 4
+    assert completed.result["registered_frame_count"] == 4
+    assert completed.result["ply_point_count"] == 64
+    assert completed.result["quality"]["status"] == "inspectable"
+    assert completed.result["params"] == {"matcher": "sequential", "use_gpu": True}
+    assert (project_dir / "reconstruction" / "sparse-point-cloud.ply").is_file()
+    metadata = json.loads((project_dir / "metadata" / "reconstruction.json").read_text(encoding="utf-8"))
+    assert metadata["colmap"]["workspace"].startswith("reconstruction/colmap-workspace/")
+
+
+def test_worker_rejects_point_cloud_reconstruction_frames_dir_outside_project(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Point cloud path safety")
+    project_dir = tmp_path / project.id
+    outside_frames = tmp_path / "outside"
+    _write_frames(outside_frames, count=3)
+    _write_frame_extraction_metadata(project_dir, frames_dir=str(outside_frames), count=3)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "reconstruct_point_cloud", {})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path, colmap_path=str(tmp_path / "colmap.exe")))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "failed"
+    assert completed.error == "Reconstruction path escaped the project directory."
 
 
 def test_jobs_api_creates_and_polls_job(tmp_path, monkeypatch) -> None:
@@ -313,3 +417,20 @@ def _write_frame_extraction_metadata(project_dir: Path, frames_dir: str, count: 
         "extracted_at": "2026-07-04T00:00:00+00:00",
     }
     (project_dir / "metadata" / "frame_extraction.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _tiny_ply(point_count: int = 2) -> str:
+    header = [
+        "ply",
+        "format ascii 1.0",
+        f"element vertex {point_count}",
+        "property float x",
+        "property float y",
+        "property float z",
+        "property uchar red",
+        "property uchar green",
+        "property uchar blue",
+        "end_header",
+    ]
+    points = [f"{index} 0 0 255 0 0" for index in range(point_count)]
+    return "\n".join([*header, *points, ""])

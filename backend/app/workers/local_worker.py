@@ -10,6 +10,7 @@ from app.services.debug_frame_cloud import DebugFrameCloudService
 from app.services.frame_extraction import FrameExtractionService
 from app.services.job_store import JobStore
 from app.services.project_store import ProjectStore
+from app.services.reconstruction_jobs import ReconstructionService
 
 from pipeline.scripts.run_reconstruction_spike import build_report, inspect_frames, write_report
 
@@ -36,6 +37,8 @@ class LocalWorker:
             return self._run_reconstruction_spike(job)
         if job.job_type == "debug_frame_cloud":
             return self._run_debug_frame_cloud(job)
+        if job.job_type == "reconstruct_point_cloud":
+            return self._run_reconstruct_point_cloud(job)
         raise ValueError(f"Unsupported job type: {job.job_type}")
 
     def _run_frame_extraction(self, job: JobResponse) -> dict[str, Any]:
@@ -72,6 +75,16 @@ class LocalWorker:
             plane_width=job.params.get("plane_width", 1.35),
         )
         self.job_store.append_log(job.project_id, job.id, f"wrote debug frame cloud: {result['output_path']}")
+        return result
+
+    def _run_reconstruct_point_cloud(self, job: JobResponse) -> dict[str, Any]:
+        service = ReconstructionService(self.project_store, colmap_path=self.config.colmap_path)
+        result = service.reconstruct_point_cloud(
+            job.project_id,
+            matcher=job.params.get("matcher", "exhaustive"),
+            use_gpu=job.params.get("use_gpu", False),
+        )
+        self.job_store.append_log(job.project_id, job.id, f"wrote sparse point cloud: {result['output_path']}")
         return result
 
 

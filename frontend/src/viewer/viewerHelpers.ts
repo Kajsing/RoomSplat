@@ -2,7 +2,7 @@ import type { ArtifactType } from '../api'
 
 export function formatViewerArtifactType(type: ArtifactType) {
   const labels = {
-    debug_frame_cloud_ply: 'Frame Room Cloud',
+    debug_frame_cloud_ply: 'Debug frame planes',
     point_cloud_ply: 'Point cloud PLY',
     splat_ply: 'Splat PLY',
     mesh_glb: 'GLB scene',

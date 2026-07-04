@@ -3,8 +3,8 @@
 ## Current status
 
 Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented.
-Current milestone: Usable 3D Viewer Preview complete and pushed.
-Next planned milestone: Real Reconstruction Preview v1.
+Current milestone: Real Reconstruction Preview v1 in progress.
+Next planned milestone: Real Gaussian Splatting reconstruction after sparse point-cloud preview is validated.
 
 ## Latest completed milestone
 
@@ -52,7 +52,9 @@ npm --prefix frontend run build
 - Frame extraction tests use deterministic animated GIF fixtures; general video formats require `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - Synchronous frame extraction API still exists for compatibility, but the UI now starts frame extraction through jobs.
 - No real reconstruction training is integrated yet; Milestone 4 selects an interim path and reports dependency readiness.
+- Real sparse point-cloud reconstruction is being integrated through local COLMAP; it requires `colmap.exe` on PATH or `ROOMSPLAT_COLMAP_PATH`.
 - Local reconstruction dependencies are not installed in the current shell: `pycolmap`, `nerfstudio`, `gsplat`, `torch`, `open3d`, `colmap`, `ns-process-data`, and `ns-train` are unavailable.
+- `colmap.exe` is not on PATH in this shell; browser smoke used local ignored COLMAP 4.1.0 no-CUDA binaries under `data/tools/` via `ROOMSPLAT_COLMAP_PATH`.
 - Windows-native Nerfstudio/gsplat setup may be fragile due to CUDA, PyTorch, and Visual Studio Build Tools requirements.
 - `.ply` may mean point cloud or splat data depending on pipeline stage; UI must label this.
 - `.glb` export path is uncertain until representation is known.
@@ -87,6 +89,20 @@ npm --prefix frontend run build
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 33 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 7
 - `git diff --check` - passed with line-ending warnings only
+- `where.exe colmap` - not found
+- `winget search COLMAP` - no package found
+- Downloaded official GitHub release asset `colmap-x64-windows-nocuda.zip` for COLMAP 4.1.0 into ignored `data/tools/`
+- `C:\project\RoomSplat\data\tools\colmap-4.1.0-nocuda\bin\colmap.exe -h` - passed
+- Direct `ReconstructionService.reconstruct_point_cloud` run on Objectron project `9522ce63dbfc454fb638fae38375863c` - passed with 8 input frames, 8 registered frames, 729 PLY points
+- Browser smoke at `http://127.0.0.1:5173` for Real Reconstruction Preview v1 - passed; UI `Run point cloud reconstruction` job succeeded with 731 PLY points and 8 registered frames
+- Browser verified `sparse-point-cloud.ply` listed as `point_cloud_ply`, reconstruction stats visible, real COLMAP notice visible, debug frame planes warning visible, artifact switching works, and fit/reset/point-size/color controls respond
+- Browser screenshot saved to ignored `data/manual-verification/real-reconstruction-preview-v1.png`
+- Browser pixel check for Real Reconstruction Preview v1 canvas crop - nonblank, 1,892 unique colors, non-background ratio 0.044931
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 62 tests for final Real Reconstruction Preview v1 validation
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 4 frontend helper tests for final Real Reconstruction Preview v1 validation
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed for final Real Reconstruction Preview v1 validation with chunk-size warning
+- `pnpm dlx npm@latest --prefix frontend audit --audit-level=moderate` with bundled Node on PATH - passed, 0 vulnerabilities
+- `git diff --check` - passed with line-ending warnings only
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests/test_jobs.py backend/tests/test_artifacts.py` - passed, 23 tests after Usable 3D Viewer backend changes
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 4 frontend helper tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Usable 3D Viewer frontend changes with chunk-size warning
@@ -115,7 +131,7 @@ npm --prefix frontend run build
 
 ## Next step
 
-Recommended next milestone: Real Reconstruction Preview v1. See `docs/next-goals/real-reconstruction-preview-v1.md`.
+Recommended next milestone: install or configure COLMAP locally, then browser-smoke the real `reconstruct_point_cloud` flow against the Objectron test project.
 
 ## Real Reconstruction Preview v1 plan
 
@@ -124,6 +140,21 @@ Recommended next milestone: Real Reconstruction Preview v1. See `docs/next-goals
 - Keep Frame Room Cloud/debug frame planes explicitly labeled as not reconstruction.
 - Use COLMAP dependency detection and clear setup errors instead of adding binaries, Docker, cloud upload, or paid services.
 - Preserve local-only v1 assumptions and generated-data git hygiene.
+
+## Real Reconstruction Preview v1 notes
+
+- Added `ROOMSPLAT_COLMAP_PATH` / `COLMAP_PATH` configuration.
+- Added `reconstruct_point_cloud` job type.
+- Added `pipeline/adapters/colmap_sparse_runner.py` for COLMAP feature extraction, matching, mapping, TXT conversion, and PLY conversion using argument-list subprocess calls.
+- Added `backend/app/services/reconstruction_jobs.py`.
+- The job reads `metadata/frame_extraction.json`, validates frames stay inside the project, requires at least 3 frame images, creates a per-run workspace under `reconstruction/colmap-workspace/`, and writes `reconstruction/sparse-point-cloud.ply`.
+- The job writes `metadata/reconstruction.json` with `mode: reconstruction`, `is_reconstruction: true`, `not_reconstruction: false`, registered frame count, sparse point count, PLY point count, params, COLMAP workspace, and quality notes.
+- Added `GET /projects/{project_id}/reconstruction`.
+- Artifact listing labels `reconstruction/sparse-point-cloud.ply` as `point_cloud_ply` with a sparse COLMAP reconstruction description.
+- Frontend now exposes a `Run point cloud reconstruction` job button.
+- Viewer fetches reconstruction metadata for `point_cloud_ply` artifacts and shows real reconstruction stats separately from debug frame planes.
+- UI label for `debug_frame_cloud_ply` is now `Debug frame planes` to reduce confusion with real reconstruction.
+- Local browser smoke used COLMAP 4.1.0 no-CUDA from ignored `data/tools/`, generated `reconstruction/sparse-point-cloud.ply`, and verified the real point-cloud viewer state.
 
 ## Usable 3D Viewer Preview notes
 

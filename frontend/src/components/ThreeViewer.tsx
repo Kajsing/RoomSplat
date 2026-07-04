@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { PLYLoader } from 'three/addons/loaders/PLYLoader.js'
-import type { Artifact, DebugFrameCloudMetadata } from '../api'
+import type { Artifact, DebugFrameCloudMetadata, ReconstructionMetadata } from '../api'
 import { formatBytes, formatViewerArtifactType } from '../viewer/viewerHelpers'
 
 type ColorMode = 'vertex' | 'solid' | 'height'
@@ -12,8 +12,11 @@ type CameraPreset = 'default' | 'front' | 'side' | 'top'
 
 type ViewerStats = {
   framePlaneCount?: number
+  inputFrameCount?: number
   meshCount?: number
   pointCount?: number
+  registeredFrameCount?: number
+  sparsePointCount?: number
 }
 
 type LoadedArtifact = {
@@ -27,10 +30,11 @@ type LoadedArtifact = {
 type ThreeViewerProps = {
   artifact: Artifact
   debugFrameCloudMetadata: DebugFrameCloudMetadata | null
+  reconstructionMetadata: ReconstructionMetadata | null
   sourceUrl: string
 }
 
-export default function ThreeViewer({ artifact, debugFrameCloudMetadata, sourceUrl }: ThreeViewerProps) {
+export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconstructionMetadata, sourceUrl }: ThreeViewerProps) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
@@ -167,6 +171,9 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, sourceU
         setViewerStats({
           ...result.stats,
           framePlaneCount: framePlanes.length || undefined,
+          inputFrameCount: reconstructionMetadata?.input_frame_count,
+          registeredFrameCount: reconstructionMetadata?.registered_frame_count,
+          sparsePointCount: reconstructionMetadata?.sparse_point_count,
         })
       })
       .catch((reason: Error) => {
@@ -179,7 +186,7 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, sourceU
     return () => {
       cancelled = true
     }
-  }, [artifact, debugFrameCloudMetadata, showFrameMarkers, sourceUrl, pointSize, colorMode])
+  }, [artifact, debugFrameCloudMetadata, reconstructionMetadata, showFrameMarkers, sourceUrl, pointSize, colorMode])
 
   function handleResetCamera() {
     const camera = cameraRef.current
@@ -283,6 +290,11 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, sourceU
         <span>Type: {formatViewerArtifactType(artifact.artifact_type)}</span>
         <span>Size: {formatBytes(artifact.size_bytes)}</span>
         {viewerStats.pointCount !== undefined ? <span>Points: {viewerStats.pointCount.toLocaleString()}</span> : null}
+        {viewerStats.inputFrameCount !== undefined ? <span>Input frames: {viewerStats.inputFrameCount.toLocaleString()}</span> : null}
+        {viewerStats.registeredFrameCount !== undefined ? (
+          <span>Registered frames: {viewerStats.registeredFrameCount.toLocaleString()}</span>
+        ) : null}
+        {viewerStats.sparsePointCount !== undefined ? <span>Sparse points: {viewerStats.sparsePointCount.toLocaleString()}</span> : null}
         {viewerStats.meshCount !== undefined ? <span>Meshes: {viewerStats.meshCount.toLocaleString()}</span> : null}
         {viewerStats.framePlaneCount !== undefined ? <span>Frame planes: {viewerStats.framePlaneCount.toLocaleString()}</span> : null}
         {debugFrameCloudMetadata?.params ? (
@@ -297,7 +309,15 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, sourceU
         <span>{status}</span>
       </div>
       {warning ? <p style={warningStyle}>{warning}</p> : null}
-      {debugFrameCloudMetadata?.not_reconstruction ? <p style={warningStyle}>Debug/inspection artifact only. This is not reconstruction.</p> : null}
+      {debugFrameCloudMetadata?.not_reconstruction ? (
+        <p style={warningStyle}>Debug frame planes are flat video frames placed in 3D for inspection only. This is not reconstruction.</p>
+      ) : null}
+      {artifact.artifact_type === 'point_cloud_ply' && reconstructionMetadata?.is_reconstruction ? (
+        <p style={realOutputStyle}>Real sparse point-cloud reconstruction from COLMAP. This is conventional point geometry, not Gaussian splat data.</p>
+      ) : null}
+      {artifact.artifact_type === 'point_cloud_ply' && reconstructionMetadata?.quality?.warning ? (
+        <p style={warningStyle}>{reconstructionMetadata.quality.warning}</p>
+      ) : null}
       {screenshotMessage ? <p style={successStyle}>{screenshotMessage}</p> : null}
     </div>
   )
@@ -324,8 +344,8 @@ async function loadArtifact(artifact: Artifact, sourceUrl: string, pointSize: nu
     if (artifact.artifact_type === 'debug_frame_cloud_ply') {
       return {
         ...result,
-        status: 'Frame Room Cloud loaded for viewer/debug inspection.',
-        warning: 'Frame Room Cloud is sampled from extracted frames and is not a reconstruction.',
+        status: 'Debug frame planes loaded for viewer inspection.',
+        warning: 'Debug frame planes are sampled from extracted frames and are not reconstruction.',
       }
     }
     return result
@@ -592,4 +612,13 @@ const successStyle = {
   color: '#1f883d',
   fontWeight: 600,
   margin: 0,
+} satisfies CSSProperties
+
+const realOutputStyle = {
+  background: '#dafbe1',
+  border: '1px solid #1f883d',
+  borderRadius: 6,
+  color: '#116329',
+  margin: 0,
+  padding: 10,
 } satisfies CSSProperties

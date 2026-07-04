@@ -11,10 +11,12 @@ import {
   ExportResult,
   getDebugFrameCloudMetadata,
   getFrameExtraction,
+  getReconstructionMetadata,
   Job,
   listArtifacts,
   listJobs,
   Project,
+  ReconstructionMetadata,
 } from '../api'
 import ThreeViewer from './ThreeViewer'
 import { formatViewerArtifactType, isThreeViewerArtifact } from '../viewer/viewerHelpers'
@@ -30,6 +32,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null)
   const [debugText, setDebugText] = useState<string | null>(null)
   const [debugFrameCloudMetadata, setDebugFrameCloudMetadata] = useState<DebugFrameCloudMetadata | null>(null)
+  const [reconstructionMetadata, setReconstructionMetadata] = useState<ReconstructionMetadata | null>(null)
   const [debugPreviewParams, setDebugPreviewParams] = useState({
     max_points: 50000,
     frame_step: 1,
@@ -65,6 +68,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
   useEffect(() => {
     setDebugText(null)
     setDebugFrameCloudMetadata(null)
+    setReconstructionMetadata(null)
     setError(null)
     if (!project || !selectedArtifact) return
 
@@ -83,6 +87,12 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
         .then(setDebugFrameCloudMetadata)
         .catch((reason: Error) => setError(reason.message))
     }
+
+    if (selectedArtifact.artifact_type === 'point_cloud_ply') {
+      getReconstructionMetadata(project.id)
+        .then(setReconstructionMetadata)
+        .catch(() => setReconstructionMetadata(null))
+    }
   }, [project, selectedArtifact])
 
   function refreshProjectViewerState(projectId: string) {
@@ -92,7 +102,10 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
         setArtifacts(loadedArtifacts)
         setSelectedArtifactId((currentId) => {
           if (currentId && loadedArtifacts.some((artifact) => artifact.id === currentId)) return currentId
-          return loadedArtifacts.find((artifact) => artifact.artifact_type === 'debug_frame_cloud_ply')?.id ?? loadedArtifacts[0]?.id ?? null
+          return loadedArtifacts.find((artifact) => artifact.artifact_type === 'point_cloud_ply')?.id ??
+            loadedArtifacts.find((artifact) => artifact.artifact_type === 'debug_frame_cloud_ply')?.id ??
+            loadedArtifacts[0]?.id ??
+            null
         })
         setHasExtractedFrames(
           hasFrameMetadata ||
@@ -112,7 +125,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
       const job = await createJob(project.id, 'debug_frame_cloud', debugPreviewParams)
       onJobChange(job)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not create debug 3D preview job')
+      setError(reason instanceof Error ? reason.message : 'Could not create debug frame planes job')
     } finally {
       setIsCreatingDebugPreview(false)
     }
@@ -151,7 +164,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
             style={secondaryButtonStyle}
             type="button"
           >
-            Create debug 3D preview
+            Create debug frame planes
           </button>
           <button disabled={!project} onClick={() => project && refreshProjectViewerState(project.id)} style={secondaryButtonStyle} type="button">
             Refresh
@@ -159,7 +172,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
         </div>
       </div>
 
-      {project && !hasExtractedFrames ? <p style={mutedStyle}>Extract frames before creating a Frame Room Cloud preview.</p> : null}
+      {project && !hasExtractedFrames ? <p style={mutedStyle}>Extract frames before creating debug frame planes or real point-cloud reconstruction.</p> : null}
       {project && hasExtractedFrames ? (
         <div style={previewOptionsStyle}>
           <label style={inputLabelStyle}>
@@ -268,6 +281,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
                   <ThreeViewer
                     artifact={selectedArtifact}
                     debugFrameCloudMetadata={debugFrameCloudMetadata}
+                    reconstructionMetadata={reconstructionMetadata}
                     sourceUrl={`${artifactUrl(selectedArtifact)}?v=${encodeURIComponent(selectedArtifact.modified_at)}`}
                   />
                 ) : null}

@@ -43,7 +43,7 @@ export type FrameExtractionOptions = {
   max_frames?: number
 }
 
-export type JobType = 'frame_extraction' | 'reconstruction_spike' | 'debug_frame_cloud'
+export type JobType = 'frame_extraction' | 'reconstruction_spike' | 'debug_frame_cloud' | 'reconstruct_point_cloud'
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed'
 
 export type Job = {
@@ -109,6 +109,41 @@ export type DebugFrameCloudMetadata = {
   frame_planes: DebugFramePlane[]
   output_path?: string
   warning?: string
+}
+
+export type ReconstructionMetadata = {
+  project_id: string
+  artifact_type: 'point_cloud_ply'
+  mode: 'reconstruction'
+  reconstruction_type: 'sparse_point_cloud'
+  is_reconstruction: boolean
+  not_reconstruction: boolean
+  debug: boolean
+  placeholder: boolean
+  adapter: string
+  generated_at?: string
+  source_metadata?: string
+  frames_dir?: string
+  input_frame_count: number
+  source_frame_count?: number
+  registered_frame_count: number
+  sparse_point_count: number
+  ply_point_count: number
+  quality?: {
+    status: 'inspectable' | 'too_sparse'
+    warning: string | null
+  }
+  params?: {
+    matcher: 'exhaustive' | 'sequential'
+    use_gpu: boolean
+  }
+  colmap?: {
+    executable: string
+    command_count: number
+    workspace: string
+  }
+  output_path?: string
+  warning?: string | null
 }
 
 export type ExportFormat = 'ply' | 'glb'
@@ -220,6 +255,10 @@ export function artifactUrl(artifact: Artifact, baseUrl = DEFAULT_BASE_URL) {
 
 export async function getDebugFrameCloudMetadata(projectId: string, baseUrl = DEFAULT_BASE_URL) {
   return requestJson<DebugFrameCloudMetadata>(`${baseUrl}/projects/${projectId}/debug-frame-cloud`)
+}
+
+export async function getReconstructionMetadata(projectId: string, baseUrl = DEFAULT_BASE_URL) {
+  return requestJson<ReconstructionMetadata>(`${baseUrl}/projects/${projectId}/reconstruction`)
 }
 
 export async function createExport(

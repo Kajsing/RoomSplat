@@ -39,20 +39,20 @@ class DebugFrameCloudService:
         frame_metadata_path = (project_dir / FRAME_METADATA_RELATIVE_PATH).resolve()
         _ensure_inside_project(frame_metadata_path, project_dir)
         if not frame_metadata_path.is_file():
-            raise ValueError("No extracted frames metadata was found. Extract frames before creating a debug 3D preview.")
+            raise ValueError("No extracted frames metadata was found. Extract frames before creating debug frame planes.")
 
         frame_metadata = _read_json(frame_metadata_path)
         frames_dir = _resolve_inside_project(project_dir, frame_metadata.get("frames_dir") or "frames")
         if not frames_dir.is_dir():
-            raise ValueError("Extracted frames directory was not found. Extract frames before creating a debug 3D preview.")
+            raise ValueError("Extracted frames directory was not found. Extract frames before creating debug frame planes.")
 
         frame_paths = sorted(path for path in frames_dir.iterdir() if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg"})
         if not frame_paths:
-            raise ValueError("No extracted frame images were found. Extract frames before creating a debug 3D preview.")
+            raise ValueError("No extracted frame images were found. Extract frames before creating debug frame planes.")
 
         selected_frame_paths = frame_paths[:: options["frame_step"]]
         if not selected_frame_paths:
-            raise ValueError("No frames were selected for the debug 3D preview.")
+            raise ValueError("No frames were selected for debug frame planes.")
         if len(selected_frame_paths) > options["max_points"]:
             selected_frame_paths = selected_frame_paths[: options["max_points"]]
 
@@ -81,7 +81,7 @@ class DebugFrameCloudService:
             "params": options,
             "frame_planes": frame_planes,
             "output_path": OUTPUT_RELATIVE_PATH.as_posix(),
-            "warning": "Frame Room Cloud is a viewer/debug point cloud sampled from frames. It is not a reconstruction.",
+            "warning": "Debug frame planes are viewer/debug points sampled from flat frames and placed in 3D. This is not a reconstruction.",
         }
         metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         return metadata
@@ -190,7 +190,7 @@ def _write_ascii_ply(path: Path, points: list[tuple[float, float, float, int, in
         "ply",
         "format ascii 1.0",
         "comment RoomSplat debug_frame_cloud_ply; viewer/debug artifact only.",
-        "comment Frame Room Cloud is sampled from extracted frames and is not a reconstruction.",
+        "comment Debug frame planes are sampled from extracted frames and are not a reconstruction.",
         f"element vertex {len(points)}",
         "property float x",
         "property float y",
