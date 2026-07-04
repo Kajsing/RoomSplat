@@ -64,8 +64,13 @@ class LocalWorker:
 
     def _run_debug_frame_cloud(self, job: JobResponse) -> dict[str, Any]:
         service = DebugFrameCloudService(self.project_store)
-        max_points = int(job.params.get("max_points", 50_000))
-        result = service.generate(job.project_id, max_points=max_points)
+        result = service.generate(
+            job.project_id,
+            max_points=job.params.get("max_points", 50_000),
+            frame_step=job.params.get("frame_step", 1),
+            arc_degrees=job.params.get("arc_degrees", 55.0),
+            plane_width=job.params.get("plane_width", 1.35),
+        )
         self.job_store.append_log(job.project_id, job.id, f"wrote debug frame cloud: {result['output_path']}")
         return result
 

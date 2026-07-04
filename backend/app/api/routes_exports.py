@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 
 from app.config import get_config
 from app.models.schemas import ArtifactListResponse, ExportCreateRequest, ExportListResponse, ExportResponse
+from app.services.debug_frame_cloud import DebugFrameCloudService
 from app.services.export_service import ArtifactService, ArtifactServiceError, ExportService
 from app.services.project_store import ProjectStore
 
@@ -15,6 +16,10 @@ def get_artifact_service() -> ArtifactService:
 
 def get_export_service() -> ExportService:
     return ExportService(get_artifact_service())
+
+
+def get_debug_frame_cloud_service() -> DebugFrameCloudService:
+    return DebugFrameCloudService(ProjectStore(get_config().data_dir))
 
 
 @router.get("/projects/{project_id}/artifacts", response_model=ArtifactListResponse)
@@ -32,6 +37,14 @@ def download_artifact(project_id: str, artifact_id: str) -> FileResponse:
     except ArtifactServiceError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return FileResponse(artifact_path, filename=artifact_path.name)
+
+
+@router.get("/projects/{project_id}/debug-frame-cloud")
+def get_debug_frame_cloud_metadata(project_id: str) -> dict:
+    try:
+        return get_debug_frame_cloud_service().read_metadata(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/projects/{project_id}/exports", response_model=ExportResponse, status_code=201)

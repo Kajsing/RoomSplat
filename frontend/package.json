@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "echo \"No frontend tests yet\""
+    "test": "echo \"No frontend tests yet\"",
+    "test:helpers": "node --experimental-strip-types --test tests/*.test.ts"
   },
   "dependencies": {
     "@mkkellogg/gaussian-splats-3d": "^0.4.7",

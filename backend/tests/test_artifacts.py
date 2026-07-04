@@ -55,6 +55,36 @@ def test_artifact_download_serves_file(tmp_path, monkeypatch) -> None:
     assert "ply" in response.text
 
 
+def test_debug_frame_cloud_metadata_endpoint_returns_metadata(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "Debug cloud metadata"}).json()
+    project_dir = tmp_path / project["id"]
+    payload = {
+        "project_id": project["id"],
+        "artifact_type": "debug_frame_cloud_ply",
+        "mode": "debug",
+        "not_reconstruction": True,
+        "frame_planes": [{"frame_index": 0, "source_frame": "frames/frame_000001.png", "point_count": 2}],
+    }
+    (project_dir / "metadata" / "debug_frame_cloud.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    response = client.get(f"/projects/{project['id']}/debug-frame-cloud")
+
+    assert response.status_code == 200
+    assert response.json() == payload
+
+
+def test_debug_frame_cloud_metadata_endpoint_returns_404_when_missing(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "No debug cloud metadata"}).json()
+
+    response = client.get(f"/projects/{project['id']}/debug-frame-cloud")
+
+    assert response.status_code == 404
+
+
 def test_artifact_download_rejects_unknown_id(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
     client = TestClient(app)

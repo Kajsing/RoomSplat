@@ -4,19 +4,35 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { PLYLoader } from 'three/addons/loaders/PLYLoader.js'
-import type { Artifact } from '../api'
+import type { Artifact, DebugFrameCloudMetadata } from '../api'
+import { formatBytes, formatViewerArtifactType } from '../viewer/viewerHelpers'
 
 type ColorMode = 'vertex' | 'solid' | 'height'
+type CameraPreset = 'default' | 'front' | 'side' | 'top'
+
+type ViewerStats = {
+  framePlaneCount?: number
+  meshCount?: number
+  pointCount?: number
+}
+
+type LoadedArtifact = {
+  object: THREE.Object3D
+  splatObject?: { update?: () => void; dispose?: () => void }
+  stats: ViewerStats
+  status: string
+  warning?: string
+}
 
 type ThreeViewerProps = {
   artifact: Artifact
+  debugFrameCloudMetadata: DebugFrameCloudMetadata | null
   sourceUrl: string
 }
 
-export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
+export default function ThreeViewer({ artifact, debugFrameCloudMetadata, sourceUrl }: ThreeViewerProps) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const sceneRef = useRef<THREE.Scene | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
   const artifactRootRef = useRef<THREE.Group | null>(null)
@@ -27,8 +43,12 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
   const [colorMode, setColorMode] = useState<ColorMode>('vertex')
   const [showGrid, setShowGrid] = useState(true)
   const [showAxes, setShowAxes] = useState(true)
+  const [showFrameMarkers, setShowFrameMarkers] = useState(true)
+  const [isLargeView, setIsLargeView] = useState(false)
+  const [screenshotMessage, setScreenshotMessage] = useState<string | null>(null)
   const [status, setStatus] = useState('Loading artifact...')
   const [warning, setWarning] = useState<string | null>(null)
+  const [viewerStats, setViewerStats] = useState<ViewerStats>({})
 
   useEffect(() => {
     const mount = mountRef.current
@@ -39,7 +59,7 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
     const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 1000)
     camera.position.set(2.6, 1.8, 3.2)
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.setSize(mount.clientWidth, mount.clientHeight)
@@ -63,7 +83,6 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
     scene.add(keyLight)
 
     rendererRef.current = renderer
-    sceneRef.current = scene
     cameraRef.current = camera
     controlsRef.current = controls
     artifactRootRef.current = root
@@ -102,7 +121,6 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
       renderer.dispose()
       renderer.domElement.remove()
       rendererRef.current = null
-      sceneRef.current = null
       cameraRef.current = null
       controlsRef.current = null
       artifactRootRef.current = null
@@ -126,6 +144,7 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
     let cancelled = false
     setStatus('Loading artifact...')
     setWarning(null)
+    setViewerStats({})
     clearArtifactRoot(root)
     splatObjectsRef.current = []
 
@@ -137,10 +156,18 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
           return
         }
         root.add(result.object)
+        const framePlanes = getFramePlanes(debugFrameCloudMetadata)
+        if (artifact.artifact_type === 'debug_frame_cloud_ply' && framePlanes.length > 0 && showFrameMarkers) {
+          root.add(createFrameMarkers(debugFrameCloudMetadata))
+        }
         if (result.splatObject) splatObjectsRef.current = [result.splatObject]
         fitCameraToObject(result.object, cameraRef.current, controlsRef.current)
         setStatus(result.status)
         setWarning(result.warning ?? null)
+        setViewerStats({
+          ...result.stats,
+          framePlaneCount: framePlanes.length || undefined,
+        })
       })
       .catch((reason: Error) => {
         if (!cancelled) {
@@ -152,7 +179,7 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
     return () => {
       cancelled = true
     }
-  }, [artifact.id, artifact.artifact_type, sourceUrl, pointSize, colorMode])
+  }, [artifact, debugFrameCloudMetadata, showFrameMarkers, sourceUrl, pointSize, colorMode])
 
   function handleResetCamera() {
     const camera = cameraRef.current
@@ -165,21 +192,56 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
 
   function handleFitToArtifact() {
     const root = artifactRootRef.current
-    const object = root?.children[0]
-    fitCameraToObject(object, cameraRef.current, controlsRef.current)
+    fitCameraToObject(root?.children[0], cameraRef.current, controlsRef.current)
+  }
+
+  function handleCameraPreset(preset: CameraPreset) {
+    const root = artifactRootRef.current
+    setCameraPreset(preset, root?.children[0], cameraRef.current, controlsRef.current)
+  }
+
+  function handleScreenshot() {
+    const renderer = rendererRef.current
+    if (!renderer) return
+    const link = document.createElement('a')
+    link.download = `${artifact.name.replace(/\.[^.]+$/, '')}-viewer.png`
+    link.href = renderer.domElement.toDataURL('image/png')
+    link.click()
+    setScreenshotMessage(`Screenshot generated: ${link.download}`)
   }
 
   return (
-    <div style={containerStyle}>
+    <div style={isLargeView ? largeContainerStyle : containerStyle}>
       <div style={toolbarStyle}>
+        <button onClick={() => setIsLargeView((current) => !current)} style={buttonStyle} type="button" title="Toggle large viewer">
+          {isLargeView ? 'Close large view' : 'Large view'}
+        </button>
         <button onClick={handleResetCamera} style={buttonStyle} type="button" title="Reset camera">
           Reset camera
         </button>
         <button onClick={handleFitToArtifact} style={buttonStyle} type="button" title="Fit camera to artifact">
           Fit
         </button>
+        <button onClick={() => handleCameraPreset('default')} style={buttonStyle} type="button" title="Default orbit camera">
+          Default
+        </button>
+        <button onClick={() => handleCameraPreset('front')} style={buttonStyle} type="button" title="Front camera">
+          Front
+        </button>
+        <button onClick={() => handleCameraPreset('side')} style={buttonStyle} type="button" title="Side camera">
+          Side
+        </button>
+        <button onClick={() => handleCameraPreset('top')} style={buttonStyle} type="button" title="Top camera">
+          Top
+        </button>
+        <button onClick={handleScreenshot} style={buttonStyle} type="button" title="Save viewer screenshot">
+          Screenshot
+        </button>
         <label style={controlLabelStyle}>
           Point size
+          <button onClick={() => setPointSize((current) => Math.max(0.005, current - 0.005))} style={smallButtonStyle} type="button">
+            -
+          </button>
           <input
             max={0.12}
             min={0.005}
@@ -189,6 +251,9 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
             type="range"
             value={pointSize}
           />
+          <button onClick={() => setPointSize((current) => Math.min(0.12, current + 0.005))} style={smallButtonStyle} type="button">
+            +
+          </button>
         </label>
         <label style={controlLabelStyle}>
           Color
@@ -206,18 +271,39 @@ export default function ThreeViewer({ artifact, sourceUrl }: ThreeViewerProps) {
           <input checked={showAxes} onChange={(event) => setShowAxes(event.target.checked)} type="checkbox" />
           Axes
         </label>
+        {artifact.artifact_type === 'debug_frame_cloud_ply' && getFramePlanes(debugFrameCloudMetadata).length > 0 ? (
+          <label style={checkLabelStyle}>
+            <input checked={showFrameMarkers} onChange={(event) => setShowFrameMarkers(event.target.checked)} type="checkbox" />
+            Frame markers
+          </label>
+        ) : null}
       </div>
-      <div ref={mountRef} style={canvasHostStyle} />
+      <div ref={mountRef} style={isLargeView ? largeCanvasHostStyle : canvasHostStyle} />
+      <div style={statsStyle}>
+        <span>Type: {formatViewerArtifactType(artifact.artifact_type)}</span>
+        <span>Size: {formatBytes(artifact.size_bytes)}</span>
+        {viewerStats.pointCount !== undefined ? <span>Points: {viewerStats.pointCount.toLocaleString()}</span> : null}
+        {viewerStats.meshCount !== undefined ? <span>Meshes: {viewerStats.meshCount.toLocaleString()}</span> : null}
+        {viewerStats.framePlaneCount !== undefined ? <span>Frame planes: {viewerStats.framePlaneCount.toLocaleString()}</span> : null}
+        {debugFrameCloudMetadata?.params ? (
+          <span>
+            Params: {debugFrameCloudMetadata.params.max_points.toLocaleString()} pts, step {debugFrameCloudMetadata.params.frame_step},{' '}
+            {debugFrameCloudMetadata.params.arc_degrees} deg, width {debugFrameCloudMetadata.params.plane_width}
+          </span>
+        ) : null}
+      </div>
       <div style={statusStyle}>
-        <strong>{formatArtifactLabel(artifact.artifact_type)}</strong>
+        <strong>{formatViewerArtifactType(artifact.artifact_type)}</strong>
         <span>{status}</span>
       </div>
       {warning ? <p style={warningStyle}>{warning}</p> : null}
+      {debugFrameCloudMetadata?.not_reconstruction ? <p style={warningStyle}>Debug/inspection artifact only. This is not reconstruction.</p> : null}
+      {screenshotMessage ? <p style={successStyle}>{screenshotMessage}</p> : null}
     </div>
   )
 }
 
-async function loadArtifact(artifact: Artifact, sourceUrl: string, pointSize: number, colorMode: ColorMode) {
+async function loadArtifact(artifact: Artifact, sourceUrl: string, pointSize: number, colorMode: ColorMode): Promise<LoadedArtifact> {
   if (artifact.artifact_type === 'mesh_glb') {
     return loadGlb(sourceUrl)
   }
@@ -229,7 +315,7 @@ async function loadArtifact(artifact: Artifact, sourceUrl: string, pointSize: nu
       return {
         ...fallback,
         status: 'Splat loader could not read this file; displayed as point cloud fallback.',
-        warning: reason instanceof Error ? reason.message : 'Splat loader failed; displayed as point cloud fallback.',
+        warning: `GaussianSplats3D rejected this PLY (${reason instanceof Error ? reason.message : 'unknown reason'}). Displayed as a point cloud fallback; the file may be conventional PLY or missing Gaussian splat attributes.`,
       }
     }
   }
@@ -247,7 +333,7 @@ async function loadArtifact(artifact: Artifact, sourceUrl: string, pointSize: nu
   throw new Error('This artifact type is not a 3D viewer artifact.')
 }
 
-async function loadSplat(sourceUrl: string) {
+async function loadSplat(sourceUrl: string): Promise<LoadedArtifact> {
   const GaussianSplats3D = await import('@mkkellogg/gaussian-splats-3d')
   const splatObject = new GaussianSplats3D.DropInViewer({ gpuAcceleratedSort: false })
   await splatObject.addSplatScene(sourceUrl, {
@@ -259,13 +345,18 @@ async function loadSplat(sourceUrl: string) {
   return {
     object: splatObject as THREE.Object3D,
     splatObject,
+    stats: {},
     status: 'Gaussian splat PLY loaded with splat renderer.',
   }
 }
 
-async function loadPlyPoints(sourceUrl: string, pointSize: number, colorMode: ColorMode) {
+async function loadPlyPoints(sourceUrl: string, pointSize: number, colorMode: ColorMode): Promise<LoadedArtifact> {
   const geometry = await new PLYLoader().loadAsync(sourceUrl)
   geometry.computeBoundingBox()
+  const positions = geometry.getAttribute('position')
+  if (!positions || positions.count === 0) {
+    throw new Error('PLY artifact has no vertex positions to display.')
+  }
   applyColorMode(geometry, colorMode)
   const hasVertexColor = colorMode !== 'solid' && Boolean(geometry.getAttribute('color'))
   const material = new THREE.PointsMaterial({
@@ -277,23 +368,27 @@ async function loadPlyPoints(sourceUrl: string, pointSize: number, colorMode: Co
   const object = new THREE.Points(geometry, material)
   return {
     object,
-    status: `Point cloud loaded with ${geometry.getAttribute('position')?.count ?? 0} points.`,
+    stats: { pointCount: positions.count },
+    status: `Point cloud loaded with ${positions.count} points.`,
   }
 }
 
-async function loadGlb(sourceUrl: string) {
+async function loadGlb(sourceUrl: string): Promise<LoadedArtifact> {
   const gltf = await new GLTFLoader().loadAsync(sourceUrl)
   const object = gltf.scene ?? new THREE.Group()
+  let meshCount = 0
   object.traverse((child) => {
     if (child instanceof THREE.Mesh) {
       child.castShadow = true
       child.receiveShadow = true
+      meshCount += 1
     }
   })
   return {
     object,
-    status: object.children.length > 0 ? 'GLB scene loaded.' : 'GLB loaded, but it did not contain a visible scene.',
-    warning: object.children.length > 0 ? undefined : 'This GLB has no visible scene nodes.',
+    stats: { meshCount },
+    status: meshCount > 0 ? 'GLB scene loaded.' : 'GLB loaded, but it did not contain visible mesh nodes.',
+    warning: meshCount > 0 ? undefined : 'This GLB has no visible mesh nodes.',
   }
 }
 
@@ -330,6 +425,47 @@ function fitCameraToObject(object: THREE.Object3D | undefined, camera: THREE.Per
   controls.update()
 }
 
+function setCameraPreset(
+  preset: CameraPreset,
+  object: THREE.Object3D | undefined,
+  camera: THREE.PerspectiveCamera | null,
+  controls: OrbitControls | null,
+) {
+  if (!camera || !controls) return
+  const box = object ? new THREE.Box3().setFromObject(object) : new THREE.Box3()
+  const center = box.isEmpty() ? new THREE.Vector3(0, 0, 0) : box.getCenter(new THREE.Vector3())
+  const size = box.isEmpty() ? new THREE.Vector3(2, 2, 2) : box.getSize(new THREE.Vector3())
+  const distance = Math.max(size.x, size.y, size.z, 1) * 1.8
+  const offsets: Record<CameraPreset, THREE.Vector3> = {
+    default: new THREE.Vector3(distance * 0.85, distance * 0.55, distance * 1.25),
+    front: new THREE.Vector3(0, 0, distance),
+    side: new THREE.Vector3(distance, distance * 0.2, 0),
+    top: new THREE.Vector3(0, distance, 0.001),
+  }
+  camera.position.copy(center).add(offsets[preset])
+  camera.lookAt(center)
+  controls.target.copy(center)
+  controls.update()
+}
+
+function createFrameMarkers(metadata: DebugFrameCloudMetadata) {
+  const group = new THREE.Group()
+  group.name = 'debug-frame-markers'
+  const geometry = new THREE.SphereGeometry(0.035, 12, 12)
+  const material = new THREE.MeshBasicMaterial({ color: 0xd1242f })
+  for (const plane of getFramePlanes(metadata)) {
+    const marker = new THREE.Mesh(geometry, material)
+    marker.position.set(plane.position.x, plane.position.y, plane.position.z)
+    marker.name = `Frame ${plane.frame_index + 1}: ${plane.source_frame}`
+    group.add(marker)
+  }
+  return group
+}
+
+function getFramePlanes(metadata: DebugFrameCloudMetadata | null) {
+  return Array.isArray(metadata?.frame_planes) ? metadata.frame_planes : []
+}
+
 function clearArtifactRoot(root: THREE.Group) {
   for (const child of [...root.children]) {
     root.remove(child)
@@ -346,25 +482,25 @@ function disposeObject(object: THREE.Object3D) {
     } else {
       disposable.material?.dispose()
     }
-    ;(child as { dispose?: () => void }).dispose?.()
+    if (child !== object) {
+      ;(child as { dispose?: () => void }).dispose?.()
+    }
   })
-}
-
-function formatArtifactLabel(type: Artifact['artifact_type']) {
-  const labels = {
-    debug_frame_cloud_ply: 'Frame Room Cloud',
-    point_cloud_ply: 'Point cloud PLY',
-    splat_ply: 'Splat PLY',
-    mesh_glb: 'GLB scene',
-    debug_report: 'Debug report',
-    unsupported: 'Unsupported',
-  }
-  return labels[type]
 }
 
 const containerStyle = {
   display: 'grid',
   gap: 10,
+} satisfies CSSProperties
+
+const largeContainerStyle = {
+  ...containerStyle,
+  background: '#ffffff',
+  inset: 16,
+  overflow: 'auto',
+  padding: 16,
+  position: 'fixed',
+  zIndex: 20,
 } satisfies CSSProperties
 
 const toolbarStyle = {
@@ -381,6 +517,12 @@ const buttonStyle = {
   color: '#24292f',
   fontWeight: 700,
   padding: '8px 10px',
+} satisfies CSSProperties
+
+const smallButtonStyle = {
+  ...buttonStyle,
+  minWidth: 30,
+  padding: '6px 8px',
 } satisfies CSSProperties
 
 const controlLabelStyle = {
@@ -415,6 +557,19 @@ const canvasHostStyle = {
   width: '100%',
 } satisfies CSSProperties
 
+const largeCanvasHostStyle = {
+  ...canvasHostStyle,
+  minHeight: 'calc(100vh - 220px)',
+} satisfies CSSProperties
+
+const statsStyle = {
+  color: '#57606a',
+  display: 'flex',
+  flexWrap: 'wrap',
+  fontSize: 13,
+  gap: 10,
+} satisfies CSSProperties
+
 const statusStyle = {
   alignItems: 'center',
   color: '#57606a',
@@ -431,4 +586,10 @@ const warningStyle = {
   color: '#5d4411',
   margin: 0,
   padding: 10,
+} satisfies CSSProperties
+
+const successStyle = {
+  color: '#1f883d',
+  fontWeight: 600,
+  margin: 0,
 } satisfies CSSProperties

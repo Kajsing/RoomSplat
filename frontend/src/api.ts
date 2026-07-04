@@ -76,6 +76,41 @@ export type Artifact = {
   description: string
 }
 
+export type DebugFramePlane = {
+  frame_index: number
+  source_frame: string
+  position: { x: number; y: number; z: number }
+  angle_degrees: number
+  point_count: number
+  image_width: number
+  image_height: number
+  plane_width: number
+  plane_height: number
+}
+
+export type DebugFrameCloudMetadata = {
+  project_id: string
+  artifact_type: 'debug_frame_cloud_ply'
+  mode: 'debug'
+  not_reconstruction: boolean
+  generated_at?: string
+  source_metadata?: string
+  frames_dir?: string
+  source_frame_count?: number
+  frame_count: number
+  sampled_points: number
+  max_points: number
+  params?: {
+    max_points: number
+    frame_step: number
+    arc_degrees: number
+    plane_width: number
+  }
+  frame_planes: DebugFramePlane[]
+  output_path?: string
+  warning?: string
+}
+
 export type ExportFormat = 'ply' | 'glb'
 export type ExportStatus = 'real' | 'placeholder'
 
@@ -181,6 +216,10 @@ export async function listArtifacts(projectId: string, baseUrl = DEFAULT_BASE_UR
 
 export function artifactUrl(artifact: Artifact, baseUrl = DEFAULT_BASE_URL) {
   return `${baseUrl}${artifact.download_url}`
+}
+
+export async function getDebugFrameCloudMetadata(projectId: string, baseUrl = DEFAULT_BASE_URL) {
+  return requestJson<DebugFrameCloudMetadata>(`${baseUrl}/projects/${projectId}/debug-frame-cloud`)
 }
 
 export async function createExport(

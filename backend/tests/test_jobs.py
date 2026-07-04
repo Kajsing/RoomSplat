@@ -7,9 +7,11 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 from PIL import Image
+import pytest
 
 from app.config import AppConfig
 from app.main import app
+from app.services.debug_frame_cloud import DebugFrameCloudService
 from app.services.job_store import JobStore
 from app.services.project_store import ProjectStore
 from app.services.video_import import VideoImportService
@@ -90,7 +92,11 @@ def test_worker_runs_debug_frame_cloud_job(tmp_path) -> None:
     _write_frames(project_dir / "frames", count=5)
     _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=5)
     job_store = JobStore(project_store)
-    job = job_store.create_job(project.id, "debug_frame_cloud", {"max_points": 120})
+    job = job_store.create_job(
+        project.id,
+        "debug_frame_cloud",
+        {"max_points": 120, "frame_step": 2, "arc_degrees": 80, "plane_width": 1.6},
+    )
     worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path))
 
     completed = worker.run_job(project.id, job.id)
@@ -101,11 +107,67 @@ def test_worker_runs_debug_frame_cloud_job(tmp_path) -> None:
     assert completed.result["mode"] == "debug"
     assert completed.result["not_reconstruction"] is True
     assert completed.result["sampled_points"] <= 120
+    assert completed.result["source_frame_count"] == 5
+    assert completed.result["frame_count"] == 3
+    assert completed.result["params"] == {"max_points": 120, "frame_step": 2, "arc_degrees": 80.0, "plane_width": 1.6}
+    assert [plane["frame_index"] for plane in completed.result["frame_planes"]] == [0, 1, 2]
+    assert {plane["source_frame"] for plane in completed.result["frame_planes"]} == {
+        "frames/frame_000001.png",
+        "frames/frame_000003.png",
+        "frames/frame_000005.png",
+    }
+    assert sum(plane["point_count"] for plane in completed.result["frame_planes"]) == completed.result["sampled_points"]
     ply_path = project_dir / "reconstruction" / "debug-frame-room.ply"
     metadata_path = project_dir / "metadata" / "debug_frame_cloud.json"
     assert ply_path.is_file()
     assert metadata_path.is_file()
     assert "not a reconstruction" in ply_path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("params", "expected_error"),
+    [
+        ({"max_points": 50_001}, "max_points must be between 1 and 50000."),
+        ({"frame_step": 0}, "frame_step must be at least 1."),
+        ({"arc_degrees": 0}, "arc_degrees must be greater than 0 and at most 180."),
+        ({"arc_degrees": 181}, "arc_degrees must be greater than 0 and at most 180."),
+        ({"plane_width": 0}, "plane_width must be greater than 0 and at most 10."),
+        ({"plane_width": 11}, "plane_width must be greater than 0 and at most 10."),
+    ],
+)
+def test_worker_rejects_invalid_debug_frame_cloud_params(tmp_path, params, expected_error) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Frame cloud invalid params")
+    project_dir = tmp_path / project.id
+    _write_frames(project_dir / "frames", count=2)
+    _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=2)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "debug_frame_cloud", params)
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "failed"
+    assert completed.error == expected_error
+
+
+def test_debug_frame_cloud_output_is_deterministic_except_timestamp(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Frame cloud deterministic")
+    project_dir = tmp_path / project.id
+    _write_frames(project_dir / "frames", count=4)
+    _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=4)
+    service = DebugFrameCloudService(project_store)
+
+    first_metadata = service.generate(project.id, max_points=32, frame_step=1, arc_degrees=60, plane_width=1.25)
+    first_ply = (project_dir / "reconstruction" / "debug-frame-room.ply").read_text(encoding="utf-8")
+    second_metadata = service.generate(project.id, max_points=32, frame_step=1, arc_degrees=60, plane_width=1.25)
+    second_ply = (project_dir / "reconstruction" / "debug-frame-room.ply").read_text(encoding="utf-8")
+
+    assert first_ply == second_ply
+    first_metadata.pop("generated_at")
+    second_metadata.pop("generated_at")
+    assert first_metadata == second_metadata
 
 
 def test_worker_rejects_debug_frame_cloud_without_extracted_frames(tmp_path) -> None:

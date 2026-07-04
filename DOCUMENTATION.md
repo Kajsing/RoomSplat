@@ -2,12 +2,12 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented.
-Current milestone: Splat-first 3D browser viewer complete; recommended next milestone is Usable 3D Viewer Preview.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented.
+Current milestone: Usable 3D Viewer Preview complete pending final validation and push.
 
 ## Latest completed milestone
 
-Splat-first 3D browser viewer.
+Usable 3D Viewer Preview.
 
 ## How to run
 
@@ -57,6 +57,7 @@ npm --prefix frontend run build
 - `.glb` export path is uncertain until representation is known.
 - Placeholder exports are available for reconstruction spike debug reports only when explicitly requested; they are labeled as placeholders and are not real reconstruction output.
 - Frame Room Cloud artifacts are debug viewer point clouds sampled from extracted frames and are not real reconstruction output.
+- Frame Room Cloud debug preview supports `max_points`, `frame_step`, `arc_degrees`, and `plane_width`; invalid values are rejected by the worker.
 - Windows-native GPU dependencies may be difficult.
 - v1 remains unauthenticated and should bind to `127.0.0.1`; do not expose the backend to untrusted networks.
 - API responses still include some absolute local paths for operator/debug transparency; keep this local-only or revise before shared/network use.
@@ -85,6 +86,18 @@ npm --prefix frontend run build
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 33 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 7
 - `git diff --check` - passed with line-ending warnings only
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests/test_jobs.py backend/tests/test_artifacts.py` - passed, 23 tests after Usable 3D Viewer backend changes
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 4 frontend helper tests
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Usable 3D Viewer frontend changes with chunk-size warning
+- Browser smoke at `http://127.0.0.1:5173` after Usable 3D Viewer changes - passed with Objectron custom debug preview params: 12,000 max points, frame step 2, 90 degree arc, 1.8 plane width
+- Browser smoke generated `metadata/debug_frame_cloud.json` with 4 frame planes and 11,656 sampled points
+- Browser pixel check for `data/manual-verification/usable-viewer-preview.png` - nonblank canvas crop, 44 unique colors, non-background ratio 1.0
+- Browser verified large-view mode, camera presets, grid/axes/frame marker toggles, point-size stepper, color mode, screenshot status, artifact switching, and not-reconstruction warning
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 51 tests for final Usable 3D Viewer validation
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 4 frontend helper tests for final Usable 3D Viewer validation
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed for final Usable 3D Viewer validation with chunk-size warning
+- `pnpm dlx npm@latest --prefix frontend audit --audit-level=moderate` - passed, 0 vulnerabilities
+- `git diff --check` - passed with line-ending warnings only
 - Codex Security config preflight for `security_scan` - ready after declaring native v1 multi-agent runtime from tool surface
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 37 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 8
@@ -101,9 +114,21 @@ npm --prefix frontend run build
 
 ## Next step
 
-Recommended next milestone: Usable 3D Viewer Preview. The plan is saved in `docs/next-goals/usable-3d-viewer-preview.md`.
+Recommended next milestone: real reconstruction dependency setup, import/viewer polishing for larger artifacts, or a minimal end-to-end sample project pack.
 
-Other good candidates after that: real reconstruction dependency setup, import/viewer polishing for larger artifacts, or a minimal end-to-end sample project pack.
+## Usable 3D Viewer Preview notes
+
+- Extended `debug_frame_cloud` job params: `max_points`, `frame_step`, `arc_degrees`, and `plane_width`.
+- Added strict backend validation for debug preview params.
+- Added deterministic frame-plane sampling and metadata records with source frame, plane position, angle, point count, and plane/image size.
+- Added `GET /projects/{project_id}/debug-frame-cloud` for viewer metadata.
+- Added backend tests for param acceptance, invalid limits, deterministic output, frame-plane metadata, metadata endpoint, artifact labeling, and path containment.
+- Added frontend debug preview controls for custom Frame Room Cloud params.
+- Added Three.js viewer large-view mode, camera presets, screenshot capture, artifact stats, frame markers, improved empty/error states, and clearer splat fallback diagnostics.
+- Added artifact URL cache-busting with `modified_at` so regenerated PLY artifacts do not show stale browser-cached geometry.
+- Added point-size stepper buttons next to the slider for more reliable keyboard/pointer control.
+- Added frontend helper tests for artifact labels, supported modes, and stats byte formatting.
+- Frame Room Cloud remains explicitly debug/inspection-only and not reconstruction.
 
 ## Splat-first viewer notes
 

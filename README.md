@@ -14,7 +14,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Deterministic frame extraction into project `frames/` folders.
 - Local background jobs for frame extraction and reconstruction-spike orchestration.
 - Artifact discovery/download APIs with explicit labels for debug frame clouds, point clouds, splats, GLB, and debug reports.
-- Browser Three.js viewer with orbit/inspect controls for debug frame clouds, point cloud PLY, splat PLY fallback, and GLB scenes.
+- Browser Three.js viewer with orbit/inspect controls, large-view mode, camera presets, stats, screenshot capture, frame markers for debug frame clouds, point cloud PLY, splat PLY fallback, and GLB scenes.
 - Export APIs and UI controls for `.ply` / `.glb` outputs, including explicit placeholder labels for debug exports.
 - Vite + React frontend displaying backend health, create/list projects, video upload, job status, and artifact viewer states.
 - Focused security baseline docs and tests for path containment, upload limits, artifact downloads, and local-only assumptions.
@@ -86,7 +86,7 @@ Open the Vite URL shown in the terminal, usually `http://127.0.0.1:5173`.
 1. Create a project.
 2. Upload a short video or GIF.
 3. Extract frames through the local job flow.
-4. Create a debug 3D preview if you want a quick Frame Room Cloud for testing viewer orientation and controls.
+4. Create a debug 3D preview if you want a quick Frame Room Cloud for testing viewer orientation and controls. Optional parameters are `max_points`, `frame_step`, `arc_degrees`, and `plane_width`.
 5. Run the reconstruction spike to check dependency readiness.
 6. Inspect listed artifacts/debug reports in the browser viewer.
 7. Export `.ply` or `.glb` artifacts when available.
@@ -121,6 +121,7 @@ Generated videos, frames, reconstruction outputs, splats, checkpoints, and expor
 - `splat_ply` is Gaussian splat data stored in a PLY-like format, not a conventional point cloud.
 - `mesh_glb` is a portable scene/mesh container only when a real conversion path exists.
 - Large PLY files should be downloaded for full inspection; the debug Frame Room Cloud generator caps output at 50,000 points.
+- Frame Room Cloud metadata records sampled frame planes, point counts, params, and `not_reconstruction: true`.
 
 ## Documentation map
 

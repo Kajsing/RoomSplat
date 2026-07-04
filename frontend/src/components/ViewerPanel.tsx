@@ -6,8 +6,10 @@ import {
   createExport,
   createJob,
   DEFAULT_BASE_URL,
+  DebugFrameCloudMetadata,
   ExportFormat,
   ExportResult,
+  getDebugFrameCloudMetadata,
   getFrameExtraction,
   Job,
   listArtifacts,
@@ -15,6 +17,7 @@ import {
   Project,
 } from '../api'
 import ThreeViewer from './ThreeViewer'
+import { formatViewerArtifactType, isThreeViewerArtifact } from '../viewer/viewerHelpers'
 
 type ViewerPanelProps = {
   project: Project | null
@@ -26,6 +29,13 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null)
   const [debugText, setDebugText] = useState<string | null>(null)
+  const [debugFrameCloudMetadata, setDebugFrameCloudMetadata] = useState<DebugFrameCloudMetadata | null>(null)
+  const [debugPreviewParams, setDebugPreviewParams] = useState({
+    max_points: 50000,
+    frame_step: 1,
+    arc_degrees: 55,
+    plane_width: 1.35,
+  })
   const [hasExtractedFrames, setHasExtractedFrames] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exportMessage, setExportMessage] = useState<string | null>(null)
@@ -50,25 +60,30 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
   }, [activeJob?.status, project])
 
   const selectedArtifact = artifacts.find((artifact) => artifact.id === selectedArtifactId) ?? null
-  const isThreeArtifact =
-    selectedArtifact?.artifact_type === 'debug_frame_cloud_ply' ||
-    selectedArtifact?.artifact_type === 'point_cloud_ply' ||
-    selectedArtifact?.artifact_type === 'splat_ply' ||
-    selectedArtifact?.artifact_type === 'mesh_glb'
+  const isThreeArtifact = selectedArtifact ? isThreeViewerArtifact(selectedArtifact.artifact_type) : false
 
   useEffect(() => {
     setDebugText(null)
+    setDebugFrameCloudMetadata(null)
     setError(null)
-    if (!selectedArtifact || selectedArtifact.artifact_type !== 'debug_report') return
+    if (!project || !selectedArtifact) return
 
-    fetch(artifactUrl(selectedArtifact))
-      .then((response) => {
-        if (!response.ok) throw new Error('Could not load debug report')
-        return response.text()
-      })
-      .then((text) => setDebugText(text))
-      .catch((reason: Error) => setError(reason.message))
-  }, [selectedArtifact])
+    if (selectedArtifact.artifact_type === 'debug_report') {
+      fetch(artifactUrl(selectedArtifact))
+        .then((response) => {
+          if (!response.ok) throw new Error('Could not load debug report')
+          return response.text()
+        })
+        .then((text) => setDebugText(text))
+        .catch((reason: Error) => setError(reason.message))
+    }
+
+    if (selectedArtifact.artifact_type === 'debug_frame_cloud_ply') {
+      getDebugFrameCloudMetadata(project.id)
+        .then(setDebugFrameCloudMetadata)
+        .catch((reason: Error) => setError(reason.message))
+    }
+  }, [project, selectedArtifact])
 
   function refreshProjectViewerState(projectId: string) {
     setError(null)
@@ -94,7 +109,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
     setExportMessage(null)
     setIsCreatingDebugPreview(true)
     try {
-      const job = await createJob(project.id, 'debug_frame_cloud', {})
+      const job = await createJob(project.id, 'debug_frame_cloud', debugPreviewParams)
       onJobChange(job)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not create debug 3D preview job')
@@ -145,6 +160,54 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
       </div>
 
       {project && !hasExtractedFrames ? <p style={mutedStyle}>Extract frames before creating a Frame Room Cloud preview.</p> : null}
+      {project && hasExtractedFrames ? (
+        <div style={previewOptionsStyle}>
+          <label style={inputLabelStyle}>
+            Max points
+            <input
+              max={50000}
+              min={1}
+              onChange={(event) => setDebugPreviewParams((params) => ({ ...params, max_points: Number(event.target.value) }))}
+              style={numberInputStyle}
+              type="number"
+              value={debugPreviewParams.max_points}
+            />
+          </label>
+          <label style={inputLabelStyle}>
+            Frame step
+            <input
+              min={1}
+              onChange={(event) => setDebugPreviewParams((params) => ({ ...params, frame_step: Number(event.target.value) }))}
+              style={numberInputStyle}
+              type="number"
+              value={debugPreviewParams.frame_step}
+            />
+          </label>
+          <label style={inputLabelStyle}>
+            Arc
+            <input
+              max={180}
+              min={1}
+              onChange={(event) => setDebugPreviewParams((params) => ({ ...params, arc_degrees: Number(event.target.value) }))}
+              style={numberInputStyle}
+              type="number"
+              value={debugPreviewParams.arc_degrees}
+            />
+          </label>
+          <label style={inputLabelStyle}>
+            Plane width
+            <input
+              max={10}
+              min={0.1}
+              onChange={(event) => setDebugPreviewParams((params) => ({ ...params, plane_width: Number(event.target.value) }))}
+              step={0.05}
+              style={numberInputStyle}
+              type="number"
+              value={debugPreviewParams.plane_width}
+            />
+          </label>
+        </div>
+      ) : null}
       {artifacts.length === 0 ? <p style={mutedStyle}>No result artifacts yet.</p> : null}
 
       {artifacts.length > 0 ? (
@@ -161,7 +224,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
                   type="button"
                 >
                   <strong>{artifact.name}</strong>
-                  <span>{formatArtifactType(artifact.artifact_type)}</span>
+                  <span>{formatViewerArtifactType(artifact.artifact_type)}</span>
                 </button>
               </li>
             ))}
@@ -201,7 +264,13 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
                   {exportMessage ? <span style={successStyle}>{exportMessage}</span> : null}
                 </div>
 
-                {isThreeArtifact ? <ThreeViewer artifact={selectedArtifact} sourceUrl={artifactUrl(selectedArtifact)} /> : null}
+                {isThreeArtifact ? (
+                  <ThreeViewer
+                    artifact={selectedArtifact}
+                    debugFrameCloudMetadata={debugFrameCloudMetadata}
+                    sourceUrl={`${artifactUrl(selectedArtifact)}?v=${encodeURIComponent(selectedArtifact.modified_at)}`}
+                  />
+                ) : null}
                 {selectedArtifact.artifact_type === 'debug_report' && debugText ? <pre style={preStyle}>{debugText}</pre> : null}
               </>
             ) : null}
@@ -219,18 +288,6 @@ function formatExportMessage(result: ExportResult) {
     return `Placeholder ${result.format.toUpperCase()} export created: ${result.export_relative_path}`
   }
   return `${result.format.toUpperCase()} export created: ${result.export_relative_path}`
-}
-
-function formatArtifactType(type: Artifact['artifact_type']) {
-  const labels = {
-    debug_frame_cloud_ply: 'Frame Room Cloud',
-    point_cloud_ply: 'Point cloud PLY',
-    splat_ply: 'Splat PLY',
-    mesh_glb: 'GLB',
-    debug_report: 'Debug report',
-    unsupported: 'Unsupported',
-  }
-  return labels[type]
 }
 
 const sectionStyle = {
@@ -268,6 +325,29 @@ const layoutStyle = {
   display: 'grid',
   gap: 16,
   gridTemplateColumns: 'minmax(180px, 260px) minmax(0, 1fr)',
+} satisfies CSSProperties
+
+const previewOptionsStyle = {
+  alignItems: 'end',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 10,
+  marginBottom: 16,
+} satisfies CSSProperties
+
+const inputLabelStyle = {
+  color: '#57606a',
+  display: 'grid',
+  fontSize: 13,
+  gap: 4,
+} satisfies CSSProperties
+
+const numberInputStyle = {
+  border: '1px solid #d0d7de',
+  borderRadius: 6,
+  color: '#24292f',
+  maxWidth: 110,
+  padding: '7px 8px',
 } satisfies CSSProperties
 
 const listStyle = {
