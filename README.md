@@ -40,9 +40,9 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Optional for real sparse point-cloud reconstruction: COLMAP on `PATH` or configured with `ROOMSPLAT_COLMAP_PATH`.
 - Optional for real Gaussian Splatting reconstruction: a separate conda-based Nerfstudio/Splatfacto environment with `ns-process-data`, `ns-train`, `ns-export`, PyTorch/CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.
 
-GIF fixtures and tests work without ffmpeg. Real splat training is wired through the adapter, but it remains blocked until the Nerfstudio CLI tools and CUDA Toolkit are installed.
+GIF fixtures and tests work without ffmpeg. Real splat training is wired through the adapter and can reach local Nerfstudio/COLMAP on this machine, but `reconstruction/splat.ply` is still blocked by the Windows `gsplat` CUDA extension build matrix.
 
-Current local machine note from the July 4, 2026 preflight: RTX 3080 Ti and Visual Studio Build Tools are present, FFmpeg and local COLMAP are configured, but conda, CUDA Toolkit/`nvcc`, and the Nerfstudio CLI commands are not present yet.
+Current local machine note from the July 4, 2026 preflight: RTX 3080 Ti, Visual Studio Build Tools, FFmpeg, COLMAP, micromamba-based Nerfstudio environments, PyTorch/CUDA, `nvcc`, and the Nerfstudio CLI commands are present/configured locally. The Objectron cup `reconstruct_splat` path reaches `ns-train splatfacto`, but no real `splat.ply` is produced yet because `gsplat` fails or times out while compiling its CUDA extension on the current Windows CUDA/MSVC stack.
 
 ## Configure
 
@@ -51,8 +51,9 @@ Copy `.env.example` to `.env` if you want local overrides. The backend reads `.e
 - `ROOMSPLAT_DATA_DIR=./data`
 - `ROOMSPLAT_MAX_UPLOAD_MB=2048`
 - `ROOMSPLAT_FFMPEG_TIMEOUT_SECONDS=1800`
-- `ROOMSPLAT_COLMAP_PATH=` optional full path to `colmap.exe`
+- `ROOMSPLAT_COLMAP_PATH=` optional full path to `colmap.exe` or `COLMAP.bat`
 - `ROOMSPLAT_NERFSTUDIO_BIN_DIR=` optional path to the Nerfstudio environment `Scripts`/`bin` folder
+- `ROOMSPLAT_NERFSTUDIO_PYTHON_PATH=` optional path to that environment's `python.exe` for environment-specific readiness checks
 - `ROOMSPLAT_NS_PROCESS_DATA_PATH=`, `ROOMSPLAT_NS_TRAIN_PATH`, `ROOMSPLAT_NS_EXPORT_PATH` optional per-command overrides
 - `VITE_ROOMSPLAT_API_URL=http://127.0.0.1:8000`
 
@@ -104,11 +105,11 @@ Placeholder exports are allowed only for workflow/debug testing and are labeled 
 Debug frame plane artifacts are also debug-only and must not be described as reconstruction output.
 
 If COLMAP is not installed, the point-cloud reconstruction job fails with setup guidance instead of writing fake output.
-If Nerfstudio is not installed, the splat reconstruction job succeeds as a readiness check, writes `metadata/splat_reconstruction.json`, and does not write `reconstruction/splat.ply`.
+If Nerfstudio is not installed, the splat reconstruction job succeeds as a readiness check, writes `metadata/splat_reconstruction.json`, and does not write `reconstruction/splat.ply`. If Nerfstudio is installed but training/export fails, the same metadata file records the failed command output and still avoids fake splat output.
 
 ## Nerfstudio setup target
 
-The next real-splat setup step is a Windows-native isolated Nerfstudio environment, not Docker or cloud upload. Follow the upstream Windows guidance: create a conda environment, use Python 3.8, install a compatible PyTorch/CUDA stack, install CUDA Toolkit so `nvcc` is available, run build/install commands from a Visual Studio Developer Command Prompt so `cl.exe` is active, then install Nerfstudio and verify:
+The real-splat setup target is a Windows-native isolated Nerfstudio environment, not Docker or cloud upload. Use a tested Python/PyTorch/CUDA/gsplat/MSVC combination, install CUDA Toolkit so `nvcc` is available, install Visual Studio C++ Build Tools, then install Nerfstudio and verify:
 
 ```bash
 ns-process-data --help
@@ -117,6 +118,8 @@ ns-export gaussian-splat --help
 ```
 
 After that, set `ROOMSPLAT_NERFSTUDIO_BIN_DIR` to the environment `Scripts` folder or set the three individual `ROOMSPLAT_NS_*_PATH` values, then rerun the `reconstruct_splat` job.
+
+Local July 4, 2026 experiments used ignored micromamba environments under `data/tools/micromamba-root/envs/`. Python 3.8 hit modern dependency resolver issues; Python 3.10 environments can import Nerfstudio and `gsplat`, and RoomSplat now prepends the isolated environment paths, configured FFmpeg/COLMAP paths, UTF-8 subprocess settings, Visual Studio build paths, and both common `nvcc` layouts. The remaining setup work is to choose a `gsplat` build matrix that actually compiles on this Windows machine.
 
 ## Run tests
 

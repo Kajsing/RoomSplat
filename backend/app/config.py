@@ -14,6 +14,7 @@ class AppConfig(BaseModel):
     ns_process_data_path: str | None = None
     ns_train_path: str | None = None
     ns_export_path: str | None = None
+    nerfstudio_python_path: str | None = None
     max_upload_bytes: int = 2 * 1024 * 1024 * 1024
     ffmpeg_timeout_seconds: int = 30 * 60
 
@@ -39,6 +40,7 @@ def get_config() -> AppConfig:
     ns_process_data_path = env_value("ROOMSPLAT_NS_PROCESS_DATA_PATH")
     ns_train_path = env_value("ROOMSPLAT_NS_TRAIN_PATH")
     ns_export_path = env_value("ROOMSPLAT_NS_EXPORT_PATH")
+    nerfstudio_python_path = env_value("ROOMSPLAT_NERFSTUDIO_PYTHON_PATH")
     max_upload_mb = env_value("ROOMSPLAT_MAX_UPLOAD_MB", "MAX_UPLOAD_MB")
     max_upload_bytes = int(max_upload_mb) * 1024 * 1024 if max_upload_mb else AppConfig().max_upload_bytes
     timeout_seconds = int(env_value("ROOMSPLAT_FFMPEG_TIMEOUT_SECONDS") or AppConfig().ffmpeg_timeout_seconds)
@@ -50,6 +52,7 @@ def get_config() -> AppConfig:
         ns_process_data_path=ns_process_data_path,
         ns_train_path=ns_train_path,
         ns_export_path=ns_export_path,
+        nerfstudio_python_path=nerfstudio_python_path,
         max_upload_bytes=max_upload_bytes,
         ffmpeg_timeout_seconds=timeout_seconds,
     )

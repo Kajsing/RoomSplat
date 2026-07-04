@@ -79,19 +79,22 @@ Configuration options:
 - `ROOMSPLAT_NS_PROCESS_DATA_PATH`
 - `ROOMSPLAT_NS_TRAIN_PATH`
 - `ROOMSPLAT_NS_EXPORT_PATH`
+- `ROOMSPLAT_NERFSTUDIO_PYTHON_PATH`
 
-The recommended Windows path is an isolated conda Nerfstudio environment rather than adding Nerfstudio to the backend venv. Keep generated Nerfstudio datasets, checkpoints, configs, exports, and splats inside the ignored project data directory.
+The recommended Windows path is an isolated micromamba/conda Nerfstudio environment rather than adding Nerfstudio to the backend venv. Keep generated Nerfstudio datasets, checkpoints, configs, exports, and splats inside the ignored project data directory.
 
 Current local preflight from July 4, 2026:
 
 - GPU driver and `nvidia-smi` are available for an RTX 3080 Ti.
-- Visual Studio Build Tools 2022 are installed; run install/training commands from a Developer Command Prompt or call `vcvars64.bat` before building CUDA extensions.
+- Visual Studio Build Tools 2022 are installed; the adapter now infers the MSVC `PATH`, `INCLUDE`, and `LIB` values for subprocesses.
 - FFmpeg is available and local COLMAP is configured under `data/tools`.
-- Backend Python is 3.12; the adapter reports this for diagnostics, but Nerfstudio should still be installed in its own Python 3.8 environment.
-- `conda` is not installed or not on `PATH`.
-- CUDA Toolkit/`nvcc` is not installed or not on `PATH`.
-- `ns-process-data`, `ns-train`, and `ns-export` are not installed or not on `PATH`.
-- The Objectron cup `reconstruct_splat` run therefore writes blocked readiness metadata with `output_path: null` and no `reconstruction/splat.ply`.
+- Backend Python is 3.12; the adapter reports this for diagnostics, but Nerfstudio should still be installed in its own isolated Python environment. Local Python 3.8 hit modern dependency resolver issues, so the current experiments use Python 3.10.
+- Local micromamba is installed under ignored `data/tools/micromamba`.
+- `roomsplat-nerfstudio-py310` can import PyTorch 2.1.2+cu118, Nerfstudio 1.1.5, and gsplat 1.4.0, but gsplat CUDA compilation fails with current VS 2022 tooling and CUDA 11.8.
+- `roomsplat-nerfstudio-cu124` can import PyTorch 2.6.0+cu124, Nerfstudio 1.1.5, and gsplat 1.4.0; its conda-forge CUDA compiler layout puts `nvcc.exe` under `Library/bin`.
+- The adapter supports both `env/bin/nvcc.exe` and `env/Library/bin/nvcc.exe` layouts for `CUDA_HOME`.
+- COLMAP 3.9.1 no-CUDA is currently used for Nerfstudio process-data compatibility. COLMAP 4.1.0 works for RoomSplat sparse point-cloud jobs, but Nerfstudio 1.1.5 still sends `SiftExtraction.use_gpu`, which COLMAP 4.1 no longer accepts.
+- The Objectron cup `reconstruct_splat` run now reaches `ns-train splatfacto`, but no `reconstruction/splat.ply` is produced yet because gsplat's CUDA extension build times out/fails on the current Windows CUDA/MSVC matrix.
 
 Output labels must stay explicit:
 

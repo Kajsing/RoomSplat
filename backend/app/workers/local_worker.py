@@ -98,6 +98,7 @@ class LocalWorker:
             ns_train_path=self.config.ns_train_path,
             ns_export_path=self.config.ns_export_path,
             nerfstudio_bin_dir=self.config.nerfstudio_bin_dir,
+            nerfstudio_python_path=self.config.nerfstudio_python_path,
             ffmpeg_path=self.config.ffmpeg_path,
             colmap_path=self.config.colmap_path,
         )

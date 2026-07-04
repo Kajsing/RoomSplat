@@ -34,6 +34,7 @@ class SplatReconstructionService:
         ns_train_path: str | None = None,
         ns_export_path: str | None = None,
         nerfstudio_bin_dir: str | None = None,
+        nerfstudio_python_path: str | None = None,
         ffmpeg_path: str | None = None,
         colmap_path: str | None = None,
     ) -> None:
@@ -42,6 +43,7 @@ class SplatReconstructionService:
         self.ns_train_path = ns_train_path
         self.ns_export_path = ns_export_path
         self.nerfstudio_bin_dir = nerfstudio_bin_dir
+        self.nerfstudio_python_path = nerfstudio_python_path
         self.ffmpeg_path = ffmpeg_path
         self.colmap_path = colmap_path
 
@@ -80,6 +82,7 @@ class SplatReconstructionService:
             ns_train_path=self.ns_train_path,
             ns_export_path=self.ns_export_path,
             nerfstudio_bin_dir=self.nerfstudio_bin_dir,
+            nerfstudio_python_path=self.nerfstudio_python_path,
             ffmpeg_path=self.ffmpeg_path,
             colmap_path=self.colmap_path,
         )

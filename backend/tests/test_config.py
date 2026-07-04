@@ -9,6 +9,7 @@ def test_get_config_reads_local_env_file(tmp_path, monkeypatch) -> None:
                 "ROOMSPLAT_DATA_DIR=C:\\project\\RoomSplat\\data",
                 "ROOMSPLAT_FFMPEG_PATH=C:\\tools\\ffmpeg.exe",
                 "ROOMSPLAT_COLMAP_PATH=C:\\tools\\colmap.exe",
+                "ROOMSPLAT_NERFSTUDIO_PYTHON_PATH=C:\\tools\\nerfstudio\\python.exe",
                 "ROOMSPLAT_MAX_UPLOAD_MB=16",
                 "ROOMSPLAT_FFMPEG_TIMEOUT_SECONDS=42",
                 "",
@@ -22,6 +23,7 @@ def test_get_config_reads_local_env_file(tmp_path, monkeypatch) -> None:
     assert str(config.data_dir) == "C:\\project\\RoomSplat\\data"
     assert config.ffmpeg_path == "C:\\tools\\ffmpeg.exe"
     assert config.colmap_path == "C:\\tools\\colmap.exe"
+    assert config.nerfstudio_python_path == "C:\\tools\\nerfstudio\\python.exe"
     assert config.max_upload_bytes == 16 * 1024 * 1024
     assert config.ffmpeg_timeout_seconds == 42
 

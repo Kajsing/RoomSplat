@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 from pipeline.adapters.nerfstudio_splat_runner import (
     NerfstudioSplatPaths,
     NerfstudioSplatRunner,
+    _infer_cuda_home,
+    _infer_nerfstudio_env_prefix,
     find_exported_splat_ply,
     find_latest_config,
 )
@@ -44,26 +47,121 @@ def test_nerfstudio_splat_runner_reports_supporting_tool_paths(tmp_path) -> None
     assert dependencies["backend-python"].available is True
     assert dependencies["backend-python"].kind == "python_runtime"
     assert dependencies["conda"].kind == "executable"
+    assert dependencies["nerfstudio-env-torch"].kind == "python_module"
     assert dependencies["ffmpeg"].available is True
     assert dependencies["colmap"].available is True
     assert dependencies["ffmpeg"].detail.endswith("ffmpeg.exe")
     assert dependencies["colmap"].detail.endswith("colmap.exe")
 
 
+def test_nerfstudio_splat_runner_reports_configured_env_nvcc(tmp_path) -> None:
+    env_dir = tmp_path / "nerfstudio-env"
+    bin_dir = env_dir / "Scripts"
+    cuda_bin = env_dir / "bin"
+    bin_dir.mkdir(parents=True)
+    cuda_bin.mkdir()
+    for name in ["ns-process-data.exe", "ns-train.exe", "ns-export.exe"]:
+        (bin_dir / name).write_text("placeholder", encoding="utf-8")
+    (cuda_bin / "nvcc.exe").write_text("placeholder", encoding="utf-8")
+    python_path = env_dir / "python.exe"
+    python_path.write_text("placeholder", encoding="utf-8")
+
+    runner = NerfstudioSplatRunner(
+        nerfstudio_bin_dir=str(bin_dir),
+        nerfstudio_python_path=str(python_path),
+    )
+
+    readiness = runner.assess()
+    dependencies = {dependency.name: dependency for dependency in readiness.dependencies}
+
+    assert dependencies["nerfstudio-env-nvcc"].available is True
+    assert dependencies["nerfstudio-env-nvcc"].detail.endswith("nvcc.exe")
+
+
+def test_nerfstudio_splat_runner_checks_configured_env_python(tmp_path) -> None:
+    runner = NerfstudioSplatRunner(
+        nerfstudio_bin_dir=str(_write_fake_bin(tmp_path)),
+        nerfstudio_python_path=sys.executable,
+    )
+
+    readiness = runner.assess()
+    dependencies = {dependency.name: dependency for dependency in readiness.dependencies}
+
+    assert "configured Nerfstudio Python" in dependencies["nerfstudio-env-torch"].detail
+    assert dependencies["nerfstudio-env-torch"].kind == "python_module"
+
+
 def test_nerfstudio_splat_runner_builds_argument_list_commands(tmp_path) -> None:
     bin_dir = _write_fake_bin(tmp_path)
     paths = _paths(tmp_path)
-    runner = NerfstudioSplatRunner(nerfstudio_bin_dir=str(bin_dir))
+    colmap_path = tmp_path / "tools" / "COLMAP.bat"
+    colmap_path.parent.mkdir()
+    colmap_path.write_text("placeholder", encoding="utf-8")
+    runner = NerfstudioSplatRunner(nerfstudio_bin_dir=str(bin_dir), colmap_path=str(colmap_path))
 
     process_command, train_command, export_command = runner.build_commands(paths, method="splatfacto", max_iterations=3000)
 
     assert all(isinstance(command, list) for command in [process_command, train_command, export_command])
     assert process_command[1] == "images"
     assert str(paths.frames_dir) in process_command
+    assert "--no-gpu" in process_command
+    assert process_command[-2:] == ["--colmap-cmd", str(colmap_path)]
     assert train_command[1] == "splatfacto"
     assert "--max-num-iterations" in train_command
     assert export_command[1] == "gaussian-splat"
     assert "<config.yml>" in export_command
+
+
+def test_nerfstudio_splat_runner_subprocess_env_prepends_env_paths(tmp_path, monkeypatch) -> None:
+    env_dir = tmp_path / "nerfstudio-env"
+    for name in ["bin", "Scripts", "Library/bin"]:
+        (env_dir / name).mkdir(parents=True)
+    python_path = env_dir / "python.exe"
+    python_path.write_text("placeholder", encoding="utf-8")
+    tool_dir = tmp_path / "tools" / "colmap" / "bin"
+    tool_dir.mkdir(parents=True)
+    colmap_path = tool_dir / "colmap.exe"
+    colmap_path.write_text("placeholder", encoding="utf-8")
+    monkeypatch.setenv("PATH", "C:\\Windows\\System32")
+
+    runner = NerfstudioSplatRunner(nerfstudio_python_path=str(python_path), colmap_path=str(colmap_path))
+
+    subprocess_env = runner._subprocess_env()
+
+    path_parts = subprocess_env["PATH"].split(";")
+    assert path_parts[:5] == [
+        str(env_dir),
+        str(env_dir / "bin"),
+        str(env_dir / "Scripts"),
+        str(env_dir / "Library" / "bin"),
+        str(tool_dir),
+    ]
+    assert subprocess_env["CUDA_HOME"] == str(env_dir)
+    assert subprocess_env["CUDA_PATH"] == str(env_dir)
+    assert subprocess_env["PYTHONUTF8"] == "1"
+    assert subprocess_env["PYTHONIOENCODING"] == "utf-8"
+    assert subprocess_env["DISTUTILS_USE_SDK"] == "1"
+    assert (
+        subprocess_env["NVCC_PREPEND_FLAGS"]
+        == "-allow-unsupported-compiler -D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH -DCCCL_IGNORE_MSVC_TRADITIONAL_PREPROCESSOR_WARNING"
+    )
+    assert subprocess_env["CL"] == "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH /Zc:preprocessor"
+
+
+def test_infer_nerfstudio_env_prefix_from_python_or_bin_dir(tmp_path) -> None:
+    env_dir = tmp_path / "nerfstudio-env"
+
+    assert _infer_nerfstudio_env_prefix(str(env_dir / "python.exe"), None) == env_dir
+    assert _infer_nerfstudio_env_prefix(None, str(env_dir / "Scripts")) == env_dir
+
+
+def test_infer_cuda_home_prefers_conda_forge_library_layout(tmp_path) -> None:
+    env_dir = tmp_path / "nerfstudio-env"
+    library_bin = env_dir / "Library" / "bin"
+    library_bin.mkdir(parents=True)
+    (library_bin / "nvcc.exe").write_text("placeholder", encoding="utf-8")
+
+    assert _infer_cuda_home(env_dir) == env_dir / "Library"
 
 
 def test_nerfstudio_splat_runner_contract_with_mocked_commands(tmp_path) -> None:
