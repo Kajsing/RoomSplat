@@ -3,7 +3,7 @@
 ## Current status
 
 Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented.
-Current milestone: Splat-first 3D browser viewer complete; next milestone should be selected by project owner.
+Current milestone: Splat-first 3D browser viewer complete; recommended next milestone is Usable 3D Viewer Preview.
 
 ## Latest completed milestone
 
@@ -101,7 +101,9 @@ npm --prefix frontend run build
 
 ## Next step
 
-Select the next milestone. Good candidates: real reconstruction dependency setup, import/viewer polishing for larger artifacts, or a minimal end-to-end sample project pack.
+Recommended next milestone: Usable 3D Viewer Preview. The plan is saved in `docs/next-goals/usable-3d-viewer-preview.md`.
+
+Other good candidates after that: real reconstruction dependency setup, import/viewer polishing for larger artifacts, or a minimal end-to-end sample project pack.
 
 ## Splat-first viewer notes
 
