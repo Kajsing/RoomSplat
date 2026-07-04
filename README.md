@@ -14,7 +14,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Deterministic frame extraction into project `frames/` folders.
 - Local background jobs for frame extraction, reconstruction-spike orchestration, debug frame planes, real sparse point-cloud reconstruction, and Nerfstudio-backed splat reconstruction readiness/training.
 - Artifact discovery/download APIs with explicit labels for debug frame clouds, point clouds, real splats, GLB, and debug reports.
-- Browser Three.js viewer with orbit/inspect controls, large-view mode, camera presets, stats, screenshot capture, frame markers for debug frame clouds, camera/path overlays for COLMAP point clouds, point cloud PLY, splat PLY fallback, and GLB scenes.
+- Browser Three.js viewer with orbit/inspect controls, large-view mode, camera presets, orientation presets, stats, screenshot capture, frame markers for debug frame clouds, camera/path overlays for COLMAP point clouds, point cloud PLY, splat PLY fallback, and GLB scenes.
 - Export APIs and UI controls for `.ply` / `.glb` outputs, including explicit placeholder labels for debug exports.
 - Vite + React frontend displaying backend health, create/list projects, video upload, job status, and artifact viewer states.
 - Focused security baseline docs and tests for path containment, upload limits, artifact downloads, and local-only assumptions.
@@ -38,11 +38,11 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Git.
 - Optional for MP4/MOV/AVI/MKV/WebM extraction: ffmpeg on `PATH` or configured with `ROOMSPLAT_FFMPEG_PATH`.
 - Optional for real sparse point-cloud reconstruction: COLMAP on `PATH` or configured with `ROOMSPLAT_COLMAP_PATH`.
-- Optional for real Gaussian Splatting reconstruction: a separate Nerfstudio/Splatfacto environment with `ns-process-data`, `ns-train`, `ns-export`, PyTorch/CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.
+- Optional for real Gaussian Splatting reconstruction: a separate conda-based Nerfstudio/Splatfacto environment with `ns-process-data`, `ns-train`, `ns-export`, PyTorch/CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.
 
 GIF fixtures and tests work without ffmpeg. Real splat training is wired through the adapter, but it remains blocked until the Nerfstudio CLI tools and CUDA Toolkit are installed.
 
-Current local machine note from the July 4, 2026 preflight: RTX 3080 Ti and Visual Studio Build Tools are present, FFmpeg and local COLMAP are configured, but CUDA Toolkit/`nvcc` and the Nerfstudio CLI commands are not present yet.
+Current local machine note from the July 4, 2026 preflight: RTX 3080 Ti and Visual Studio Build Tools are present, FFmpeg and local COLMAP are configured, but conda, CUDA Toolkit/`nvcc`, and the Nerfstudio CLI commands are not present yet.
 
 ## Configure
 
@@ -108,7 +108,7 @@ If Nerfstudio is not installed, the splat reconstruction job succeeds as a readi
 
 ## Nerfstudio setup target
 
-The next real-splat setup step is a Windows-native isolated Nerfstudio environment, not Docker or cloud upload. Follow the upstream Windows guidance: install a compatible PyTorch/CUDA stack, install CUDA Toolkit so `nvcc` is available, run build/install commands from a Visual Studio Developer Command Prompt so `cl.exe` is active, then install Nerfstudio and verify:
+The next real-splat setup step is a Windows-native isolated Nerfstudio environment, not Docker or cloud upload. Follow the upstream Windows guidance: create a conda environment, use Python 3.8, install a compatible PyTorch/CUDA stack, install CUDA Toolkit so `nvcc` is available, run build/install commands from a Visual Studio Developer Command Prompt so `cl.exe` is active, then install Nerfstudio and verify:
 
 ```bash
 ns-process-data --help
@@ -156,6 +156,7 @@ Generated videos, frames, reconstruction outputs, splats, checkpoints, and expor
 - Debug frame plane metadata records sampled frame planes, point counts, params, and `not_reconstruction: true`.
 - Real sparse reconstruction metadata is written to `metadata/reconstruction.json` with COLMAP workspace, input frame count, registered frame count, point count, camera intrinsics, registered image poses, camera centers, camera path, trajectory bounds, params, and quality notes.
 - The viewer can show/hide points, COLMAP camera frustums, camera path, grid, and axes independently for real point-cloud artifacts.
+- The viewer orientation control can leave source axes unchanged, flip X/Y/Z, or convert between Z-up and Y-up for imported PLY/GLB/splat artifacts that appear upside down or on the wrong axis.
 - The quick/balanced/detail reconstruction presets are recorded with the run and currently provide extraction-density guidance; they do not silently re-extract frames for an existing project.
 
 ## Documentation map

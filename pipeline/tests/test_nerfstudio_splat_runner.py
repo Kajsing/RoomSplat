@@ -41,6 +41,9 @@ def test_nerfstudio_splat_runner_reports_supporting_tool_paths(tmp_path) -> None
     readiness = runner.assess()
     dependencies = {dependency.name: dependency for dependency in readiness.dependencies}
 
+    assert dependencies["backend-python"].available is True
+    assert dependencies["backend-python"].kind == "python_runtime"
+    assert dependencies["conda"].kind == "executable"
     assert dependencies["ffmpeg"].available is True
     assert dependencies["colmap"].available is True
     assert dependencies["ffmpeg"].detail.endswith("ffmpeg.exe")

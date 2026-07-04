@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
@@ -88,6 +89,8 @@ class NerfstudioSplatRunner:
             _python_module_dependency("torch"),
             _python_module_dependency("nerfstudio"),
             _python_module_dependency("gsplat"),
+            _python_runtime_dependency(),
+            _executable_dependency("conda", None, None, required=False),
             _executable_dependency("nvidia-smi", None, None, required=False),
             _executable_dependency("nvcc", None, None, required=False),
             _visual_studio_cl_dependency(),
@@ -302,6 +305,13 @@ def _python_module_dependency(module_name: str) -> SplatDependency:
     )
 
 
+def _python_runtime_dependency() -> SplatDependency:
+    version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    expected = sys.version_info >= (3, 8)
+    detail = f"Backend Python runtime is {version}. Nerfstudio should still be installed in an isolated environment, usually Python 3.8 per upstream Windows guidance."
+    return SplatDependency("backend-python", expected, "python_runtime", detail)
+
+
 def _next_steps(blockers: Sequence[str]) -> tuple[str, ...]:
     if not blockers:
         return (
@@ -309,7 +319,7 @@ def _next_steps(blockers: Sequence[str]) -> tuple[str, ...]:
             "Inspect reconstruction/splat.ply in the browser splat viewer after export.",
         )
     return (
-        "Create an isolated Nerfstudio environment with Python 3.8-3.10, PyTorch CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.",
+        "Create an isolated Nerfstudio environment with conda, Python 3.8, PyTorch CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.",
         "On Windows, run Nerfstudio install/training commands from a Visual Studio Developer Command Prompt when CUDA extensions need cl.exe.",
         "Install Nerfstudio and run ns-train splatfacto --help.",
         "Ensure ns-process-data, ns-train, and ns-export are on PATH or set ROOMSPLAT_NERFSTUDIO_BIN_DIR.",

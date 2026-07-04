@@ -68,6 +68,7 @@ npm --prefix frontend run build
 - Frame Room Cloud generation is capped at 50,000 points for browser responsiveness; large real artifacts should still be downloaded for full inspection when needed.
 - Postshot Gaussian-style PLY samples with `f_dc_*` color coefficients can be shown as point-cloud fallback, but GaussianSplats3D currently times out on the local cactus Postshot sample before rendering it as real splats.
 - SuperSplat compressed PLY samples use packed chunk/sh fields and no ordinary vertex `x/y/z` positions, so they need explicit compressed splat support; current point-cloud fallback cannot display them.
+- Imported PLY/GLB/splat artifacts may use different up axes or appear upside down; the Three.js viewer now has source/flip/axis-conversion orientation presets for inspection.
 
 ## Commands run
 
@@ -168,6 +169,14 @@ npm --prefix frontend run build
 - `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 79 tests after 3DGS sample viewer fallback changes.
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 5 frontend helper tests after 3DGS sample viewer fallback changes.
 - `git diff --check` - passed with line-ending warnings only after 3DGS sample viewer fallback changes.
+- `where.exe ns-process-data`, `where.exe ns-train`, `where.exe ns-export`, `where.exe nvcc`, `where.exe conda` - not found during first real splat goal continuation.
+- `where.exe nvidia-smi` - found `C:\Windows\System32\nvidia-smi.exe`.
+- Direct `SplatReconstructionService.reconstruct_splat` run on Objectron cup project `9522ce63dbfc454fb638fae38375863c` with `method=splatfacto`, `max_iterations=25` - wrote blocked readiness metadata and no `reconstruction/splat.ply`.
+- Browser smoke at `http://127.0.0.1:5173` for viewer orientation - loaded Postshot cactus fallback and verified `Orientation: Flip Y` in large view.
+- Pixel check for `data/manual-verification/cactus-orientation-flip-y-large-view.png` - nonblank canvas crop, 27,208 unique colors, 97,138 non-background pixels.
+- `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 79 tests after orientation/readiness changes.
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 6 frontend helper tests after orientation/readiness changes.
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after orientation/readiness changes with chunk-size warning.
 
 ## Next step
 
@@ -324,6 +333,24 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
   - Added Postshot `f_dc_0..2` mapping in PLY point fallback so Gaussian-style PLYs retain approximate color when shown as points.
   - Preserved both failure causes when splat loading and point fallback both fail.
 - Current conclusion: the browser viewer can show a recognizable object from real local 3DGS sample data today, but true splat rendering for Postshot/SuperSplat variants remains a loader-compatibility milestone.
+
+## First real RoomSplat splat goal continuation notes
+
+- Goal remains active: produce and view the first real RoomSplat Gaussian splat locally.
+- Current local blocker is environmental, not app flow:
+  - `ns-process-data`, `ns-train`, and `ns-export` are not on PATH.
+  - `conda` is not on PATH.
+  - CUDA Toolkit/`nvcc` is not on PATH.
+  - NVIDIA driver/GPU is visible through `nvidia-smi`.
+  - Visual Studio Build Tools are discoverable through `vcvars64.bat`.
+  - FFmpeg and local COLMAP are configured.
+- Re-ran `reconstruct_splat` on Objectron cup project `9522ce63dbfc454fb638fae38375863c` with 8 extracted frames.
+- Result: `metadata/splat_reconstruction.json` has `status: blocked_missing_dependencies`, `is_reconstruction: false`, `output_path: null`, and no `reconstruction/splat.ply`.
+- Readiness metadata now includes `backend-python` and `conda` dependency entries so the next setup step is clearer.
+- Viewer now includes Orientation presets: Source, Flip X/Y/Z, Z-up to Y-up, and Y-up to Z-up.
+- Browser verification loaded the Postshot cactus sample as `splat_ply` fallback and used `Flip Y` to inspect it upright in large view.
+- Screenshot saved to ignored `data/manual-verification/cactus-orientation-flip-y-large-view.png`.
+- Next real-splat setup step remains installing a Windows-native isolated Nerfstudio environment and wiring its `Scripts` directory through `ROOMSPLAT_NERFSTUDIO_BIN_DIR` or the individual `ROOMSPLAT_NS_*_PATH` values.
 
 ## Milestone 8 notes
 

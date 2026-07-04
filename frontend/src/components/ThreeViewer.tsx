@@ -5,6 +5,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { PLYLoader } from 'three/addons/loaders/PLYLoader.js'
 import type { Artifact, DebugFrameCloudMetadata, ReconstructionMetadata } from '../api'
+import { VIEWER_ORIENTATION_OPTIONS, formatViewerOrientationMode } from '../viewer/orientation'
+import type { ViewerOrientationMode } from '../viewer/orientation'
 import { formatBytes, formatViewerArtifactType } from '../viewer/viewerHelpers'
 
 type ColorMode = 'vertex' | 'solid' | 'height'
@@ -53,6 +55,7 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
   const [showCameras, setShowCameras] = useState(true)
   const [showCameraPath, setShowCameraPath] = useState(true)
   const [showFrameMarkers, setShowFrameMarkers] = useState(true)
+  const [orientationMode, setOrientationMode] = useState<ViewerOrientationMode>('source')
   const [isLargeView, setIsLargeView] = useState(false)
   const [screenshotMessage, setScreenshotMessage] = useState<string | null>(null)
   const [status, setStatus] = useState('Loading artifact...')
@@ -150,6 +153,13 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
   useEffect(() => {
     const root = artifactRootRef.current
     if (!root) return
+    applyOrientation(root, orientationMode)
+    fitCameraToObject(root, cameraRef.current, controlsRef.current)
+  }, [orientationMode])
+
+  useEffect(() => {
+    const root = artifactRootRef.current
+    if (!root) return
     let cancelled = false
     setStatus('Loading artifact...')
     setWarning(null)
@@ -178,6 +188,7 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
           root.add(createReconstructionOverlay(reconstructionMetadata, showCameras, showCameraPath))
         }
         if (result.splatObject) splatObjectsRef.current = [result.splatObject]
+        applyOrientation(root, orientationMode)
         fitCameraToObject(root, cameraRef.current, controlsRef.current)
         setStatus(result.status)
         setWarning(result.warning ?? null)
@@ -296,6 +307,16 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
             <option value="solid">Solid</option>
           </select>
         </label>
+        <label style={controlLabelStyle}>
+          Orientation
+          <select onChange={(event) => setOrientationMode(event.target.value as ViewerOrientationMode)} style={selectStyle} value={orientationMode}>
+            {VIEWER_ORIENTATION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <label style={checkLabelStyle}>
           <input checked={showGrid} onChange={(event) => setShowGrid(event.target.checked)} type="checkbox" />
           Grid
@@ -333,6 +354,7 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
       <div style={statsStyle}>
         <span>Type: {formatViewerArtifactType(artifact.artifact_type)}</span>
         <span>Size: {formatBytes(artifact.size_bytes)}</span>
+        {orientationMode !== 'source' ? <span>Orientation: {formatViewerOrientationMode(orientationMode)}</span> : null}
         {viewerStats.pointCount !== undefined ? <span>Points: {viewerStats.pointCount.toLocaleString()}</span> : null}
         {viewerStats.cameraCount !== undefined ? <span>Cameras: {viewerStats.cameraCount.toLocaleString()}</span> : null}
         {viewerStats.pathPointCount !== undefined ? <span>Path points: {viewerStats.pathPointCount.toLocaleString()}</span> : null}
@@ -527,6 +549,27 @@ function applyColorMode(geometry: THREE.BufferGeometry, colorMode: ColorMode) {
     colors[index * 3 + 2] = 0.9 - t * 0.65
   }
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+}
+
+function applyOrientation(object: THREE.Object3D, mode: ViewerOrientationMode) {
+  object.rotation.set(0, 0, 0)
+  object.scale.set(1, 1, 1)
+  if (mode === 'flip-x') {
+    object.scale.x = -1
+  }
+  if (mode === 'flip-y') {
+    object.scale.y = -1
+  }
+  if (mode === 'flip-z') {
+    object.scale.z = -1
+  }
+  if (mode === 'z-up-to-y-up') {
+    object.rotation.x = -Math.PI / 2
+  }
+  if (mode === 'y-up-to-z-up') {
+    object.rotation.x = Math.PI / 2
+  }
+  object.updateMatrixWorld(true)
 }
 
 function fitCameraToObject(object: THREE.Object3D | undefined, camera: THREE.PerspectiveCamera | null, controls: OrbitControls | null) {

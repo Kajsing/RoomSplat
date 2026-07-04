@@ -102,7 +102,8 @@ Local readiness on July 4, 2026:
 
 - GPU: NVIDIA GeForce RTX 3080 Ti visible through `nvidia-smi`.
 - CUDA driver runtime: visible through NVIDIA driver; `nvcc` was not on PATH.
-- Backend Python: 3.12.13.
+- Backend Python: 3.12.x; Nerfstudio should still be installed in an isolated Python 3.8 environment.
+- `conda` was not on PATH.
 - Missing from backend Python runtime: `torch`, `nerfstudio`, `gsplat`, `pycolmap`, `open3d`.
 - Missing from PATH: `ns-process-data`, `ns-train`, `ns-export`.
 - COLMAP is not on PATH, but local ignored COLMAP 4.1.0 no-CUDA exists under `data/tools/`.
@@ -121,3 +122,4 @@ Manual/browser checks:
 - Confirm missing Nerfstudio dependencies produce a succeeded readiness job with `metadata/splat_reconstruction.json`.
 - Confirm no placeholder `reconstruction/splat.ply` is created when readiness is blocked.
 - When Nerfstudio is installed, confirm `reconstruction/splat.ply` is listed as `splat_ply` and sorted above sparse point clouds.
+- Confirm imported `splat_ply` fallback artifacts can be inspected with the Orientation control, including `Flip Y` for upside-down sample data.

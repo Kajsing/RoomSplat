@@ -67,7 +67,7 @@ The first real splat adapter is `reconstruct_splat`, backed by Nerfstudio/Splatf
 The backend job:
 
 - reads existing extracted frames from `metadata/frame_extraction.json`,
-- checks `ns-process-data`, `ns-train`, `ns-export`, Python-side import visibility, GPU/CUDA signals, Visual Studio C++ compiler readiness, FFmpeg, and COLMAP,
+- checks `ns-process-data`, `ns-train`, `ns-export`, Python-side import visibility, backend Python runtime, conda availability, GPU/CUDA signals, Visual Studio C++ compiler readiness, FFmpeg, and COLMAP,
 - writes `metadata/splat_reconstruction.json` for both blocked and successful runs,
 - runs `ns-process-data images`, `ns-train splatfacto`, and `ns-export gaussian-splat` when dependencies are ready,
 - copies the exported Gaussian splat PLY to `reconstruction/splat.ply`,
@@ -80,13 +80,15 @@ Configuration options:
 - `ROOMSPLAT_NS_TRAIN_PATH`
 - `ROOMSPLAT_NS_EXPORT_PATH`
 
-The recommended Windows path is an isolated Nerfstudio environment rather than adding Nerfstudio to the backend venv. Keep generated Nerfstudio datasets, checkpoints, configs, exports, and splats inside the ignored project data directory.
+The recommended Windows path is an isolated conda Nerfstudio environment rather than adding Nerfstudio to the backend venv. Keep generated Nerfstudio datasets, checkpoints, configs, exports, and splats inside the ignored project data directory.
 
 Current local preflight from July 4, 2026:
 
 - GPU driver and `nvidia-smi` are available for an RTX 3080 Ti.
 - Visual Studio Build Tools 2022 are installed; run install/training commands from a Developer Command Prompt or call `vcvars64.bat` before building CUDA extensions.
 - FFmpeg is available and local COLMAP is configured under `data/tools`.
+- Backend Python is 3.12; the adapter reports this for diagnostics, but Nerfstudio should still be installed in its own Python 3.8 environment.
+- `conda` is not installed or not on `PATH`.
 - CUDA Toolkit/`nvcc` is not installed or not on `PATH`.
 - `ns-process-data`, `ns-train`, and `ns-export` are not installed or not on `PATH`.
 - The Objectron cup `reconstruct_splat` run therefore writes blocked readiness metadata with `output_path: null` and no `reconstruction/splat.ply`.

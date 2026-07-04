@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { VIEWER_ORIENTATION_OPTIONS, formatViewerOrientationMode } from '../src/viewer/orientation.ts'
 import { artifactPriority, formatBytes, formatViewerArtifactType, isThreeViewerArtifact, sortArtifactsForViewer } from '../src/viewer/viewerHelpers.ts'
 
 test('formats viewer artifact labels', () => {
@@ -46,6 +47,15 @@ test('sorts real artifacts before debug and placeholder artifacts', () => {
     ],
   )
   assert.equal(artifactPriority(artifacts[0]), 90)
+})
+
+test('provides viewer orientation presets for imported artifacts', () => {
+  assert.deepEqual(
+    VIEWER_ORIENTATION_OPTIONS.map((option) => option.value),
+    ['source', 'flip-x', 'flip-y', 'flip-z', 'z-up-to-y-up', 'y-up-to-z-up'],
+  )
+  assert.equal(formatViewerOrientationMode('source'), 'Source')
+  assert.equal(formatViewerOrientationMode('flip-y'), 'Flip Y')
 })
 
 function fakeArtifact(relativePath, artifactType) {
