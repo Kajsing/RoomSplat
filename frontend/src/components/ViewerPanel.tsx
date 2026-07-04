@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Artifact, artifactUrl, DEFAULT_BASE_URL, Job, listArtifacts, Project } from '../api'
+import {
+  Artifact,
+  artifactUrl,
+  createExport,
+  DEFAULT_BASE_URL,
+  ExportFormat,
+  ExportResult,
+  Job,
+  listArtifacts,
+  Project,
+} from '../api'
 import { glbPreviewMessage, parseGlbInfo } from '../viewer/glbViewer'
 import { parseAsciiPly, PointCloud, renderPointCloud } from '../viewer/pointCloudViewer'
 
@@ -18,6 +28,8 @@ export default function ViewerPanel({ project, activeJob }: ViewerPanelProps) {
   const [rotationY, setRotationY] = useState(25)
   const [zoom, setZoom] = useState(1)
   const [error, setError] = useState<string | null>(null)
+  const [exportMessage, setExportMessage] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
@@ -86,6 +98,25 @@ export default function ViewerPanel({ project, activeJob }: ViewerPanelProps) {
       .catch((reason: Error) => setError(reason.message))
   }
 
+  async function handleExport(format: ExportFormat, allowPlaceholder = false) {
+    if (!project || !selectedArtifact) return
+    setError(null)
+    setExportMessage(null)
+    setIsExporting(true)
+    try {
+      const result = await createExport(project.id, selectedArtifact.id, format, allowPlaceholder)
+      setExportMessage(formatExportMessage(result))
+      const loadedArtifacts = await listArtifacts(project.id)
+      setArtifacts(loadedArtifacts)
+      const exportedArtifact = loadedArtifacts.find((artifact) => artifact.relative_path === result.export_relative_path)
+      setSelectedArtifactId(exportedArtifact?.id ?? selectedArtifact.id)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Export failed')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <section style={sectionStyle}>
       <div style={headerStyle}>
@@ -106,7 +137,10 @@ export default function ViewerPanel({ project, activeJob }: ViewerPanelProps) {
             {artifacts.map((artifact) => (
               <li key={artifact.id}>
                 <button
-                  onClick={() => setSelectedArtifactId(artifact.id)}
+                  onClick={() => {
+                    setSelectedArtifactId(artifact.id)
+                    setExportMessage(null)
+                  }}
                   style={artifact.id === selectedArtifactId ? selectedArtifactStyle : artifactButtonStyle}
                   type="button"
                 >
@@ -126,6 +160,29 @@ export default function ViewerPanel({ project, activeJob }: ViewerPanelProps) {
                   <a href={`${DEFAULT_BASE_URL}${selectedArtifact.download_url}`} style={linkStyle}>
                     Download
                   </a>
+                  <div style={exportControlsStyle}>
+                    {selectedArtifact.artifact_type === 'point_cloud_ply' || selectedArtifact.artifact_type === 'splat_ply' ? (
+                      <button disabled={isExporting} onClick={() => handleExport('ply')} style={secondaryButtonStyle} type="button">
+                        Export PLY
+                      </button>
+                    ) : null}
+                    {selectedArtifact.artifact_type === 'mesh_glb' ? (
+                      <button disabled={isExporting} onClick={() => handleExport('glb')} style={secondaryButtonStyle} type="button">
+                        Export GLB
+                      </button>
+                    ) : null}
+                    {selectedArtifact.artifact_type === 'debug_report' ? (
+                      <>
+                        <button disabled={isExporting} onClick={() => handleExport('ply', true)} style={secondaryButtonStyle} type="button">
+                          Export placeholder PLY
+                        </button>
+                        <button disabled={isExporting} onClick={() => handleExport('glb', true)} style={secondaryButtonStyle} type="button">
+                          Export placeholder GLB
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                  {exportMessage ? <span style={successStyle}>{exportMessage}</span> : null}
                 </div>
 
                 {selectedArtifact.artifact_type === 'point_cloud_ply' || selectedArtifact.artifact_type === 'splat_ply' ? (
@@ -171,6 +228,13 @@ export default function ViewerPanel({ project, activeJob }: ViewerPanelProps) {
       {error ? <p style={errorStyle}>{error}</p> : null}
     </section>
   )
+}
+
+function formatExportMessage(result: ExportResult) {
+  if (result.status === 'placeholder') {
+    return `Placeholder ${result.format.toUpperCase()} export created: ${result.export_relative_path}`
+  }
+  return `${result.format.toUpperCase()} export created: ${result.export_relative_path}`
 }
 
 function formatArtifactType(type: Artifact['artifact_type']) {
@@ -268,6 +332,13 @@ const controlsStyle = {
   gap: 16,
 } satisfies CSSProperties
 
+const exportControlsStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  marginTop: 8,
+} satisfies CSSProperties
+
 const preStyle = {
   background: '#f6f8fa',
   border: '1px solid #d0d7de',
@@ -294,4 +365,9 @@ const secondaryButtonStyle = {
 const errorStyle = {
   color: '#b42318',
   margin: '12px 0 0',
+} satisfies CSSProperties
+
+const successStyle = {
+  color: '#1f883d',
+  fontWeight: 600,
 } satisfies CSSProperties

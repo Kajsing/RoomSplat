@@ -56,6 +56,8 @@ class FrameExtractionResponse(BaseModel):
 JobType = Literal["frame_extraction", "reconstruction_spike"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 ArtifactType = Literal["point_cloud_ply", "splat_ply", "mesh_glb", "debug_report", "unsupported"]
+ExportFormat = Literal["ply", "glb"]
+ExportStatus = Literal["real", "placeholder"]
 
 
 class JobCreateRequest(BaseModel):
@@ -97,3 +99,28 @@ class ArtifactResponse(BaseModel):
 
 class ArtifactListResponse(BaseModel):
     artifacts: list[ArtifactResponse]
+
+
+class ExportCreateRequest(BaseModel):
+    source_artifact_id: str
+    format: ExportFormat
+    allow_placeholder: bool = False
+
+
+class ExportResponse(BaseModel):
+    id: str
+    project_id: str
+    source_artifact_id: str
+    source_relative_path: str
+    export_relative_path: str
+    format: ExportFormat
+    artifact_type: ArtifactType
+    status: ExportStatus
+    generated_at: str
+    metadata_path: str
+    download_url: str
+    warning: str | None = None
+
+
+class ExportListResponse(BaseModel):
+    exports: list[ExportResponse]

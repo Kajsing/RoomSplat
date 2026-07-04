@@ -12,11 +12,13 @@ The first version focuses on the local engine: import a video, extract frames, r
 - Deterministic frame extraction into project `frames/` folders.
 - Local background jobs for frame extraction and reconstruction-spike orchestration.
 - Artifact discovery/download APIs with explicit labels for point clouds, splats, GLB, and debug reports.
+- Export APIs and UI controls for `.ply` / `.glb` outputs, including explicit placeholder labels for debug exports.
 - Vite + React frontend displaying backend health, create/list projects, video upload, job status, and artifact viewer states.
 
 ## What it does not do yet
 
 - No real Gaussian Splatting / NeRF training is integrated yet; the current reconstruction path is a dependency/readiness spike.
+- Placeholder exports can be created from the reconstruction spike report for UI/workflow testing, but they are labeled as placeholders and are not real reconstruction.
 - GLB artifacts currently get a metadata preview/download state; full in-browser mesh rendering is still future work.
 - General MP4/MOV extraction requires `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - No live phone/webcam streaming yet.

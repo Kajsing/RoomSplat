@@ -20,7 +20,9 @@ npm --prefix frontend run build
 7. Verify `metadata/reconstruction_spike.json` records dependency readiness and output contracts.
 8. List artifacts through `GET /projects/{project_id}/artifacts`.
 9. Load supported artifacts in the viewer or show explicit debug/unsupported states.
-10. Export `.ply` and `.glb` files when supported.
+10. Create exports through `POST /projects/{project_id}/exports`.
+11. Verify `metadata/exports/<export-id>.json` records source artifact, format, generated time, artifact label, and `real`/`placeholder` status.
+12. Download the exported file through the artifact download URL.
 
 ## Validation principle
 

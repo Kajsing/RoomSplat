@@ -2,12 +2,12 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented.
-Current milestone: Milestone 7 - Export service.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented.
+Current milestone: Milestone 8 - v1 hardening and docs.
 
 ## Latest completed milestone
 
-Milestone 6 - Viewer integration.
+Milestone 7 - Export service.
 
 ## How to run
 
@@ -56,6 +56,7 @@ npm --prefix frontend run build
 - `.ply` may mean point cloud or splat data depending on pipeline stage; UI must label this.
 - `.glb` export path is uncertain until representation is known.
 - Full in-browser GLB mesh rendering is not implemented yet; GLB artifacts get a metadata preview and download link.
+- Placeholder exports are available for reconstruction spike debug reports only when explicitly requested; they are labeled as placeholders and are not real reconstruction output.
 - Windows-native GPU dependencies may be difficult.
 
 ## Commands run
@@ -77,10 +78,25 @@ npm --prefix frontend run build
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 5
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 26 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 6
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests/test_artifacts.py backend/tests/test_exports.py` - passed, 9 tests
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 33 tests
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 7
+- `git diff --check` - passed with line-ending warnings only
 
 ## Next step
 
-Start Milestone 7: implement export service/download links for `.ply` and `.glb` outputs, preserving explicit artifact labels and metadata.
+Start Milestone 8: v1 hardening and docs, including new-user Windows setup review, `.env.example`, capture tips, and final validation cleanup.
+
+## Milestone 7 notes
+
+- Added `POST /projects/{project_id}/exports`.
+- Added `GET /projects/{project_id}/exports`.
+- Real PLY/GLB exports copy existing same-format artifacts into `exports/`.
+- Export metadata is written to `metadata/exports/<export-id>.json`.
+- Export metadata records source artifact, source path, export path, format, generated time, artifact label, download URL, warning, and `real`/`placeholder` status.
+- Placeholder PLY/GLB exports can be created only from the reconstruction spike debug report and only with `allow_placeholder: true`.
+- Placeholder files and metadata include explicit warnings that they are not real reconstruction output.
+- The frontend artifact viewer now exposes export controls and refreshes/selects exported artifacts after export.
 
 ## Milestone 6 notes
 

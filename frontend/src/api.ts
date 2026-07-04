@@ -75,6 +75,24 @@ export type Artifact = {
   description: string
 }
 
+export type ExportFormat = 'ply' | 'glb'
+export type ExportStatus = 'real' | 'placeholder'
+
+export type ExportResult = {
+  id: string
+  project_id: string
+  source_artifact_id: string
+  source_relative_path: string
+  export_relative_path: string
+  format: ExportFormat
+  artifact_type: ArtifactType
+  status: ExportStatus
+  generated_at: string
+  metadata_path: string
+  download_url: string
+  warning: string | null
+}
+
 type ProjectListResponse = {
   projects: Project[]
 }
@@ -85,6 +103,10 @@ type JobListResponse = {
 
 type ArtifactListResponse = {
   artifacts: Artifact[]
+}
+
+type ExportListResponse = {
+  exports: ExportResult[]
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -154,6 +176,29 @@ export async function listArtifacts(projectId: string, baseUrl = DEFAULT_BASE_UR
 
 export function artifactUrl(artifact: Artifact, baseUrl = DEFAULT_BASE_URL) {
   return `${baseUrl}${artifact.download_url}`
+}
+
+export async function createExport(
+  projectId: string,
+  sourceArtifactId: string,
+  format: ExportFormat,
+  allowPlaceholder = false,
+  baseUrl = DEFAULT_BASE_URL,
+) {
+  return requestJson<ExportResult>(`${baseUrl}/projects/${projectId}/exports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      source_artifact_id: sourceArtifactId,
+      format,
+      allow_placeholder: allowPlaceholder,
+    }),
+  })
+}
+
+export async function listExports(projectId: string, baseUrl = DEFAULT_BASE_URL) {
+  const response = await requestJson<ExportListResponse>(`${baseUrl}/projects/${projectId}/exports`)
+  return response.exports
 }
 
 function readErrorMessage(text: string) {

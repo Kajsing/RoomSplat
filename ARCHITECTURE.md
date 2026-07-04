@@ -108,6 +108,17 @@ Current viewer behavior:
 - `mesh_glb`: GLB metadata preview and download; full mesh rendering is future Three.js work.
 - `debug_report`: JSON/debug text, not a 3D artifact.
 
+### Export boundary
+
+The export service creates user-facing files in `exports/` from backend-listed artifacts and writes metadata in `metadata/exports/`.
+
+Current export behavior:
+
+- Real `.ply` and `.glb` exports are copies of existing same-format artifacts.
+- Placeholder `.ply` and `.glb` exports can only be generated from the reconstruction spike debug report with an explicit placeholder flag.
+- Export metadata records source artifact, output path, format, artifact label, generated time, download URL, and `real` or `placeholder` status.
+- Placeholder exports must never be presented as real reconstruction output.
+
 ## Data flow
 
 1. User creates project.
