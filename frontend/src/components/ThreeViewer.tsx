@@ -15,6 +15,8 @@ type ViewerStats = {
   inputFrameCount?: number
   meshCount?: number
   pointCount?: number
+  cameraCount?: number
+  pathPointCount?: number
   registeredFrameCount?: number
   sparsePointCount?: number
 }
@@ -47,6 +49,9 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
   const [colorMode, setColorMode] = useState<ColorMode>('vertex')
   const [showGrid, setShowGrid] = useState(true)
   const [showAxes, setShowAxes] = useState(true)
+  const [showPoints, setShowPoints] = useState(true)
+  const [showCameras, setShowCameras] = useState(true)
+  const [showCameraPath, setShowCameraPath] = useState(true)
   const [showFrameMarkers, setShowFrameMarkers] = useState(true)
   const [isLargeView, setIsLargeView] = useState(false)
   const [screenshotMessage, setScreenshotMessage] = useState<string | null>(null)
@@ -160,18 +165,28 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
           return
         }
         root.add(result.object)
+        if (isPointLayerArtifact(artifact.artifact_type)) {
+          result.object.visible = showPoints
+        }
         const framePlanes = getFramePlanes(debugFrameCloudMetadata)
         if (artifact.artifact_type === 'debug_frame_cloud_ply' && framePlanes.length > 0 && showFrameMarkers) {
           root.add(createFrameMarkers(debugFrameCloudMetadata))
         }
+        const registeredImages = getRegisteredImages(reconstructionMetadata)
+        const cameraPath = getCameraPath(reconstructionMetadata)
+        if (artifact.artifact_type === 'point_cloud_ply' && (registeredImages.length > 0 || cameraPath.length > 0)) {
+          root.add(createReconstructionOverlay(reconstructionMetadata, showCameras, showCameraPath))
+        }
         if (result.splatObject) splatObjectsRef.current = [result.splatObject]
-        fitCameraToObject(result.object, cameraRef.current, controlsRef.current)
+        fitCameraToObject(root, cameraRef.current, controlsRef.current)
         setStatus(result.status)
         setWarning(result.warning ?? null)
         setViewerStats({
           ...result.stats,
+          cameraCount: registeredImages.length || undefined,
           framePlaneCount: framePlanes.length || undefined,
           inputFrameCount: reconstructionMetadata?.input_frame_count,
+          pathPointCount: cameraPath.length || undefined,
           registeredFrameCount: reconstructionMetadata?.registered_frame_count,
           sparsePointCount: reconstructionMetadata?.sparse_point_count,
         })
@@ -186,7 +201,18 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
     return () => {
       cancelled = true
     }
-  }, [artifact, debugFrameCloudMetadata, reconstructionMetadata, showFrameMarkers, sourceUrl, pointSize, colorMode])
+  }, [
+    artifact,
+    debugFrameCloudMetadata,
+    reconstructionMetadata,
+    showCameraPath,
+    showCameras,
+    showFrameMarkers,
+    showPoints,
+    sourceUrl,
+    pointSize,
+    colorMode,
+  ])
 
   function handleResetCamera() {
     const camera = cameraRef.current
@@ -199,12 +225,12 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
 
   function handleFitToArtifact() {
     const root = artifactRootRef.current
-    fitCameraToObject(root?.children[0], cameraRef.current, controlsRef.current)
+    fitCameraToObject(root ?? undefined, cameraRef.current, controlsRef.current)
   }
 
   function handleCameraPreset(preset: CameraPreset) {
     const root = artifactRootRef.current
-    setCameraPreset(preset, root?.children[0], cameraRef.current, controlsRef.current)
+    setCameraPreset(preset, root ?? undefined, cameraRef.current, controlsRef.current)
   }
 
   function handleScreenshot() {
@@ -278,6 +304,24 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
           <input checked={showAxes} onChange={(event) => setShowAxes(event.target.checked)} type="checkbox" />
           Axes
         </label>
+        {isPointLayerArtifact(artifact.artifact_type) ? (
+          <label style={checkLabelStyle}>
+            <input checked={showPoints} onChange={(event) => setShowPoints(event.target.checked)} type="checkbox" />
+            Points
+          </label>
+        ) : null}
+        {artifact.artifact_type === 'point_cloud_ply' && getRegisteredImages(reconstructionMetadata).length > 0 ? (
+          <label style={checkLabelStyle}>
+            <input checked={showCameras} onChange={(event) => setShowCameras(event.target.checked)} type="checkbox" />
+            Cameras
+          </label>
+        ) : null}
+        {artifact.artifact_type === 'point_cloud_ply' && getCameraPath(reconstructionMetadata).length > 1 ? (
+          <label style={checkLabelStyle}>
+            <input checked={showCameraPath} onChange={(event) => setShowCameraPath(event.target.checked)} type="checkbox" />
+            Path
+          </label>
+        ) : null}
         {artifact.artifact_type === 'debug_frame_cloud_ply' && getFramePlanes(debugFrameCloudMetadata).length > 0 ? (
           <label style={checkLabelStyle}>
             <input checked={showFrameMarkers} onChange={(event) => setShowFrameMarkers(event.target.checked)} type="checkbox" />
@@ -290,6 +334,8 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
         <span>Type: {formatViewerArtifactType(artifact.artifact_type)}</span>
         <span>Size: {formatBytes(artifact.size_bytes)}</span>
         {viewerStats.pointCount !== undefined ? <span>Points: {viewerStats.pointCount.toLocaleString()}</span> : null}
+        {viewerStats.cameraCount !== undefined ? <span>Cameras: {viewerStats.cameraCount.toLocaleString()}</span> : null}
+        {viewerStats.pathPointCount !== undefined ? <span>Path points: {viewerStats.pathPointCount.toLocaleString()}</span> : null}
         {viewerStats.inputFrameCount !== undefined ? <span>Input frames: {viewerStats.inputFrameCount.toLocaleString()}</span> : null}
         {viewerStats.registeredFrameCount !== undefined ? (
           <span>Registered frames: {viewerStats.registeredFrameCount.toLocaleString()}</span>
@@ -482,8 +528,105 @@ function createFrameMarkers(metadata: DebugFrameCloudMetadata) {
   return group
 }
 
+function createReconstructionOverlay(metadata: ReconstructionMetadata | null, showCameras: boolean, showCameraPath: boolean) {
+  const group = new THREE.Group()
+  group.name = 'reconstruction-camera-overlay'
+  const registeredImages = getRegisteredImages(metadata)
+  const cameraPath = getCameraPath(metadata)
+  const scale = cameraOverlayScale(metadata)
+
+  if (showCameras && registeredImages.length > 0) {
+    const geometry = new THREE.BufferGeometry().setFromPoints(registeredImages.flatMap((image) => cameraFrustumSegments(image, scale)))
+    const material = new THREE.LineBasicMaterial({ color: 0xd1242f, linewidth: 1 })
+    const frustums = new THREE.LineSegments(geometry, material)
+    frustums.name = 'colmap-camera-frustums'
+    group.add(frustums)
+
+    const markerGeometry = new THREE.SphereGeometry(scale * 0.08, 10, 10)
+    const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xd1242f })
+    for (const image of registeredImages) {
+      const marker = new THREE.Mesh(markerGeometry, markerMaterial)
+      marker.position.set(image.center.x, image.center.y, image.center.z)
+      marker.name = `Camera ${image.image_id}: ${image.name}`
+      group.add(marker)
+    }
+  }
+
+  if (showCameraPath && cameraPath.length > 1) {
+    const points = cameraPath.map((point) => new THREE.Vector3(point.position.x, point.position.y, point.position.z))
+    const geometry = new THREE.BufferGeometry().setFromPoints(points)
+    const material = new THREE.LineBasicMaterial({ color: 0x8250df, linewidth: 2 })
+    const path = new THREE.Line(geometry, material)
+    path.name = 'colmap-camera-path'
+    group.add(path)
+  }
+
+  return group
+}
+
+function cameraFrustumSegments(image: NonNullable<ReconstructionMetadata['registered_images']>[number], scale: number) {
+  const center = new THREE.Vector3(image.center.x, image.center.y, image.center.z)
+  const corners = [
+    rotateCameraVector(image.qvec, new THREE.Vector3(-0.55, -0.35, 1)).multiplyScalar(scale).add(center),
+    rotateCameraVector(image.qvec, new THREE.Vector3(0.55, -0.35, 1)).multiplyScalar(scale).add(center),
+    rotateCameraVector(image.qvec, new THREE.Vector3(0.55, 0.35, 1)).multiplyScalar(scale).add(center),
+    rotateCameraVector(image.qvec, new THREE.Vector3(-0.55, 0.35, 1)).multiplyScalar(scale).add(center),
+  ]
+  return [
+    center,
+    corners[0],
+    center,
+    corners[1],
+    center,
+    corners[2],
+    center,
+    corners[3],
+    corners[0],
+    corners[1],
+    corners[1],
+    corners[2],
+    corners[2],
+    corners[3],
+    corners[3],
+    corners[0],
+  ]
+}
+
+function rotateCameraVector(qvec: [number, number, number, number], vector: THREE.Vector3) {
+  const [qw, qx, qy, qz] = qvec
+  const rotation = [
+    [1 - 2 * qy * qy - 2 * qz * qz, 2 * qx * qy - 2 * qz * qw, 2 * qz * qx + 2 * qy * qw],
+    [2 * qx * qy + 2 * qz * qw, 1 - 2 * qx * qx - 2 * qz * qz, 2 * qy * qz - 2 * qx * qw],
+    [2 * qz * qx - 2 * qy * qw, 2 * qy * qz + 2 * qx * qw, 1 - 2 * qx * qx - 2 * qy * qy],
+  ]
+  return new THREE.Vector3(
+    rotation[0][0] * vector.x + rotation[1][0] * vector.y + rotation[2][0] * vector.z,
+    rotation[0][1] * vector.x + rotation[1][1] * vector.y + rotation[2][1] * vector.z,
+    rotation[0][2] * vector.x + rotation[1][2] * vector.y + rotation[2][2] * vector.z,
+  )
+}
+
+function cameraOverlayScale(metadata: ReconstructionMetadata | null) {
+  const bounds = metadata?.trajectory_bounds
+  if (!bounds) return 0.12
+  const span = Math.max(bounds.max.x - bounds.min.x, bounds.max.y - bounds.min.y, bounds.max.z - bounds.min.z)
+  return Math.max(0.06, Math.min(0.35, span * 0.08))
+}
+
 function getFramePlanes(metadata: DebugFrameCloudMetadata | null) {
   return Array.isArray(metadata?.frame_planes) ? metadata.frame_planes : []
+}
+
+function getRegisteredImages(metadata: ReconstructionMetadata | null) {
+  return Array.isArray(metadata?.registered_images) ? metadata.registered_images : []
+}
+
+function getCameraPath(metadata: ReconstructionMetadata | null) {
+  return Array.isArray(metadata?.camera_path) ? metadata.camera_path : []
+}
+
+function isPointLayerArtifact(type: Artifact['artifact_type']) {
+  return type === 'debug_frame_cloud_ply' || type === 'point_cloud_ply' || type === 'splat_ply'
 }
 
 function clearArtifactRoot(root: THREE.Group) {

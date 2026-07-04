@@ -22,6 +22,38 @@ class ColmapPaths:
 
 
 @dataclass(frozen=True)
+class ColmapCamera:
+    camera_id: int
+    model: str
+    width: int
+    height: int
+    params: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class ColmapRegisteredImage:
+    image_id: int
+    camera_id: int
+    name: str
+    qvec: tuple[float, float, float, float]
+    tvec: tuple[float, float, float]
+    center: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class ColmapTrajectoryBounds:
+    min: tuple[float, float, float]
+    max: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class ColmapModelMetadata:
+    cameras: tuple[ColmapCamera, ...]
+    registered_images: tuple[ColmapRegisteredImage, ...]
+    trajectory_bounds: ColmapTrajectoryBounds | None
+
+
+@dataclass(frozen=True)
 class ColmapRunResult:
     executable: str
     matcher: str
@@ -32,6 +64,7 @@ class ColmapRunResult:
     sparse_point_count: int
     ply_point_count: int
     command_count: int
+    model_metadata: ColmapModelMetadata | None = None
 
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
@@ -83,7 +116,8 @@ class ColmapSparseReconstructionRunner:
         if not paths.output_ply.is_file():
             raise ColmapRunnerError("COLMAP finished without writing sparse-point-cloud.ply.")
 
-        registered_image_count = count_registered_images(paths.text_model_dir / "images.txt")
+        model_metadata = parse_colmap_text_model(paths.text_model_dir)
+        registered_image_count = len(model_metadata.registered_images)
         sparse_point_count = count_sparse_points(paths.text_model_dir / "points3D.txt")
         ply_point_count = read_ascii_ply_vertex_count(paths.output_ply)
 
@@ -97,6 +131,7 @@ class ColmapSparseReconstructionRunner:
             sparse_point_count=sparse_point_count,
             ply_point_count=ply_point_count,
             command_count=len(commands),
+            model_metadata=model_metadata,
         )
 
     def _run(self, command: Sequence[str]) -> None:
@@ -231,8 +266,7 @@ def find_sparse_model_dir(sparse_dir: Path) -> Path:
 def count_registered_images(images_txt: Path) -> int:
     if not images_txt.is_file():
         return 0
-    lines = _data_lines(images_txt)
-    return (len(lines) + 1) // 2
+    return len(parse_colmap_images(images_txt))
 
 
 def count_sparse_points(points_txt: Path) -> int:
@@ -253,6 +287,119 @@ def read_ascii_ply_vertex_count(ply_path: Path) -> int:
     except OSError as exc:
         raise ColmapRunnerError("Could not read sparse point cloud PLY.") from exc
     return 0
+
+
+def parse_colmap_text_model(text_model_dir: Path) -> ColmapModelMetadata:
+    cameras = tuple(parse_colmap_cameras(text_model_dir / "cameras.txt"))
+    registered_images = tuple(parse_colmap_images(text_model_dir / "images.txt"))
+    return ColmapModelMetadata(
+        cameras=cameras,
+        registered_images=registered_images,
+        trajectory_bounds=_trajectory_bounds(registered_images),
+    )
+
+
+def parse_colmap_cameras(cameras_txt: Path) -> list[ColmapCamera]:
+    if not cameras_txt.is_file():
+        return []
+    cameras: list[ColmapCamera] = []
+    for line in _data_lines(cameras_txt):
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        try:
+            cameras.append(
+                ColmapCamera(
+                    camera_id=int(parts[0]),
+                    model=parts[1],
+                    width=int(parts[2]),
+                    height=int(parts[3]),
+                    params=tuple(float(value) for value in parts[4:]),
+                )
+            )
+        except ValueError as exc:
+            raise ColmapRunnerError(f"Could not parse COLMAP camera line: {line}") from exc
+    return cameras
+
+
+def parse_colmap_images(images_txt: Path) -> list[ColmapRegisteredImage]:
+    if not images_txt.is_file():
+        return []
+    lines = _data_lines(images_txt)
+    images: list[ColmapRegisteredImage] = []
+    for index in range(0, len(lines), 2):
+        line = lines[index].strip()
+        if not line:
+            continue
+        parts = line.split(maxsplit=9)
+        if len(parts) < 10:
+            continue
+        try:
+            qvec = (float(parts[1]), float(parts[2]), float(parts[3]), float(parts[4]))
+            tvec = (float(parts[5]), float(parts[6]), float(parts[7]))
+            images.append(
+                ColmapRegisteredImage(
+                    image_id=int(parts[0]),
+                    camera_id=int(parts[8]),
+                    name=parts[9],
+                    qvec=qvec,
+                    tvec=tvec,
+                    center=_camera_center(qvec, tvec),
+                )
+            )
+        except ValueError as exc:
+            raise ColmapRunnerError(f"Could not parse COLMAP image line: {line}") from exc
+    return images
+
+
+def _camera_center(
+    qvec: tuple[float, float, float, float],
+    tvec: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    rotation = _qvec_to_rotation_matrix(qvec)
+    tx, ty, tz = tvec
+    return tuple(
+        round(
+            -(
+                rotation[0][axis] * tx
+                + rotation[1][axis] * ty
+                + rotation[2][axis] * tz
+            ),
+            8,
+        )
+        for axis in range(3)
+    )
+
+
+def _qvec_to_rotation_matrix(qvec: tuple[float, float, float, float]) -> tuple[tuple[float, float, float], ...]:
+    qw, qx, qy, qz = qvec
+    return (
+        (
+            1 - 2 * qy * qy - 2 * qz * qz,
+            2 * qx * qy - 2 * qz * qw,
+            2 * qz * qx + 2 * qy * qw,
+        ),
+        (
+            2 * qx * qy + 2 * qz * qw,
+            1 - 2 * qx * qx - 2 * qz * qz,
+            2 * qy * qz - 2 * qx * qw,
+        ),
+        (
+            2 * qz * qx - 2 * qy * qw,
+            2 * qy * qz + 2 * qx * qw,
+            1 - 2 * qx * qx - 2 * qy * qy,
+        ),
+    )
+
+
+def _trajectory_bounds(registered_images: Sequence[ColmapRegisteredImage]) -> ColmapTrajectoryBounds | None:
+    if not registered_images:
+        return None
+    centers = [image.center for image in registered_images]
+    return ColmapTrajectoryBounds(
+        min=tuple(min(center[axis] for center in centers) for axis in range(3)),
+        max=tuple(max(center[axis] for center in centers) for axis in range(3)),
+    )
 
 
 def _data_lines(path: Path) -> list[str]:

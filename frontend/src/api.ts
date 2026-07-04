@@ -111,6 +111,29 @@ export type DebugFrameCloudMetadata = {
   warning?: string
 }
 
+export type ReconstructionCamera = {
+  camera_id: number
+  model: string
+  width: number
+  height: number
+  params: number[]
+}
+
+export type ReconstructionRegisteredImage = {
+  image_id: number
+  camera_id: number
+  name: string
+  qvec: [number, number, number, number]
+  tvec: [number, number, number]
+  center: { x: number; y: number; z: number }
+}
+
+export type ReconstructionCameraPathPoint = {
+  image_id: number
+  name: string
+  position: { x: number; y: number; z: number }
+}
+
 export type ReconstructionMetadata = {
   project_id: string
   artifact_type: 'point_cloud_ply'
@@ -129,13 +152,24 @@ export type ReconstructionMetadata = {
   registered_frame_count: number
   sparse_point_count: number
   ply_point_count: number
+  cameras?: ReconstructionCamera[]
+  registered_images?: ReconstructionRegisteredImage[]
+  camera_path?: ReconstructionCameraPathPoint[]
+  trajectory_bounds?: {
+    min: { x: number; y: number; z: number }
+    max: { x: number; y: number; z: number }
+  } | null
   quality?: {
     status: 'inspectable' | 'too_sparse'
     warning: string | null
   }
   params?: {
+    preset?: 'quick' | 'balanced' | 'detail'
     matcher: 'exhaustive' | 'sequential'
     use_gpu: boolean
+    recommended_frame_stride?: number
+    recommended_max_frames?: number
+    description?: string
   }
   colmap?: {
     executable: string

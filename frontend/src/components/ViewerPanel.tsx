@@ -19,7 +19,7 @@ import {
   ReconstructionMetadata,
 } from '../api'
 import ThreeViewer from './ThreeViewer'
-import { formatViewerArtifactType, isThreeViewerArtifact } from '../viewer/viewerHelpers'
+import { formatViewerArtifactType, isThreeViewerArtifact, sortArtifactsForViewer } from '../viewer/viewerHelpers'
 
 type ViewerPanelProps = {
   project: Project | null
@@ -99,12 +99,13 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
     setError(null)
     Promise.all([listArtifacts(projectId), listJobs(projectId), getFrameExtraction(projectId).then(() => true).catch(() => false)])
       .then(([loadedArtifacts, jobs, hasFrameMetadata]) => {
-        setArtifacts(loadedArtifacts)
+        const sortedArtifacts = sortArtifactsForViewer(loadedArtifacts)
+        setArtifacts(sortedArtifacts)
         setSelectedArtifactId((currentId) => {
-          if (currentId && loadedArtifacts.some((artifact) => artifact.id === currentId)) return currentId
-          return loadedArtifacts.find((artifact) => artifact.artifact_type === 'point_cloud_ply')?.id ??
-            loadedArtifacts.find((artifact) => artifact.artifact_type === 'debug_frame_cloud_ply')?.id ??
-            loadedArtifacts[0]?.id ??
+          if (currentId && sortedArtifacts.some((artifact) => artifact.id === currentId)) return currentId
+          return sortedArtifacts.find((artifact) => artifact.artifact_type === 'point_cloud_ply')?.id ??
+            sortedArtifacts.find((artifact) => artifact.artifact_type === 'debug_frame_cloud_ply')?.id ??
+            sortedArtifacts[0]?.id ??
             null
         })
         setHasExtractedFrames(
@@ -139,7 +140,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
     try {
       const result = await createExport(project.id, selectedArtifact.id, format, allowPlaceholder)
       setExportMessage(formatExportMessage(result))
-      const loadedArtifacts = await listArtifacts(project.id)
+      const loadedArtifacts = sortArtifactsForViewer(await listArtifacts(project.id))
       setArtifacts(loadedArtifacts)
       const exportedArtifact = loadedArtifacts.find((artifact) => artifact.relative_path === result.export_relative_path)
       setSelectedArtifactId(exportedArtifact?.id ?? selectedArtifact.id)

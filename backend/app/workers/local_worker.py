@@ -83,6 +83,7 @@ class LocalWorker:
             job.project_id,
             matcher=job.params.get("matcher", "exhaustive"),
             use_gpu=job.params.get("use_gpu", False),
+            preset=job.params.get("preset", "balanced"),
         )
         self.job_store.append_log(job.project_id, job.id, f"wrote sparse point cloud: {result['output_path']}")
         return result

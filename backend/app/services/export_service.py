@@ -42,7 +42,7 @@ class ArtifactService:
         if debug_report.is_file():
             artifacts.append(self._artifact_response(project_id, project_dir, debug_report))
 
-        return artifacts
+        return sorted(artifacts, key=_artifact_sort_key)
 
     def resolve_artifact_path(self, project_id: str, artifact_id: str) -> Path:
         project_dir = self._project_dir(project_id)
@@ -277,6 +277,25 @@ def _description(artifact_type: ArtifactType, relative_path: Path | None = None)
     if artifact_type == "point_cloud_ply" and relative_path and relative_path.name == "sparse-point-cloud.ply":
         return "Sparse COLMAP point-cloud reconstruction. This is conventional point geometry, not Gaussian splat data."
     return descriptions[artifact_type]
+
+
+def _artifact_sort_key(artifact: ArtifactResponse) -> tuple[int, str]:
+    relative_path = Path(artifact.relative_path)
+    name = relative_path.name.lower()
+    is_placeholder = relative_path.parent.name == "exports" and name.startswith("placeholder-")
+    if is_placeholder:
+        return (90, artifact.relative_path)
+    if artifact.relative_path == "reconstruction/sparse-point-cloud.ply":
+        return (0, artifact.relative_path)
+    ranks = {
+        "point_cloud_ply": 10,
+        "splat_ply": 20,
+        "mesh_glb": 30,
+        "debug_frame_cloud_ply": 60,
+        "debug_report": 70,
+        "unsupported": 100,
+    }
+    return (ranks.get(artifact.artifact_type, 100), artifact.relative_path)
 
 
 def _format_for_artifact_type(artifact_type: ArtifactType) -> ExportFormat:

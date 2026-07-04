@@ -61,3 +61,29 @@ Manual/browser checks:
 - Confirm the Three.js canvas is nonblank, fit/reset/orbit/zoom/point-size/color controls work, and artifact switching keeps debug and real outputs distinct.
 
 Security baseline checks should cover path containment for project IDs, uploads, frame extraction sources, job paths, artifact IDs, artifact listing/downloads, and export outputs.
+
+## Reconstruction Quality + Camera Path v1
+
+Focused validation for the camera/path metadata and viewer overlays:
+
+```bash
+python -m pytest pipeline/tests/test_colmap_sparse_runner.py backend/tests/test_jobs.py backend/tests/test_artifacts.py
+node --experimental-strip-types --test frontend/tests/*.test.ts
+npm --prefix frontend run build
+```
+
+Objectron local sample results with COLMAP 4.1.0 no-CUDA, `preset=balanced`, `matcher=exhaustive`, `use_gpu=false`:
+
+| Sample | Project | Extracted frames | Extraction stride | Registered frames | Sparse/PLY points | Cameras | Quality |
+|---|---|---:|---:|---:|---:|---:|---|
+| Objectron cup | `9522ce63dbfc454fb638fae38375863c` | 8 | 15 | 8 | 729 | 8 | inspectable |
+| Objectron chair | `eef6d5739f524dc8a45eadc43aa0c5ec` | 14 | 18 | 14 | 3,723 | 14 | inspectable |
+| Objectron shoe | `daae7b0411d54bbba2b95f71341ad5df` | 10 | 18 | 10 | 2,041 | 10 | inspectable |
+
+Manual/browser checks:
+
+- Confirm the selected `sparse-point-cloud.ply` loads as `point_cloud_ply`.
+- Confirm stats show point count, cameras, path points, input frames, registered frames, and sparse points.
+- Toggle points, cameras, path, grid, and axes independently.
+- Confirm camera frustums and trajectory remain distinct from debug frame-plane markers.
+- Confirm artifact ordering keeps `reconstruction/sparse-point-cloud.ply` above debug frame planes and placeholder exports.

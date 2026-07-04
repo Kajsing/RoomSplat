@@ -10,6 +10,9 @@ from pipeline.adapters.colmap_sparse_runner import (
     ColmapSparseReconstructionRunner,
     build_colmap_commands,
     build_colmap_paths,
+    parse_colmap_cameras,
+    parse_colmap_images,
+    parse_colmap_text_model,
     read_ascii_ply_vertex_count,
     resolve_colmap_executable,
 )
@@ -62,6 +65,7 @@ def test_runner_contract_with_mocked_colmap_commands(tmp_path) -> None:
                 "\n".join(
                     [
                         "# images",
+                        "",
                         "1 1 0 0 0 0 0 0 1 frame_000001.png",
                         "0 0 -1",
                         "2 1 0 0 0 1 0 0 1 frame_000002.png",
@@ -72,6 +76,7 @@ def test_runner_contract_with_mocked_colmap_commands(tmp_path) -> None:
                 ),
                 encoding="utf-8",
             )
+            (text_dir / "cameras.txt").write_text("1 PINHOLE 640 480 500 500 320 240\n", encoding="utf-8")
             (text_dir / "points3D.txt").write_text("1 0 0 0 255 0 0 1\n2 1 0 0 0 255 0 1\n", encoding="utf-8")
         if command_name == "model_converter" and command[-1] == "PLY":
             Path(command[command.index("--output_path") + 1]).write_text(_tiny_ply(2), encoding="utf-8")
@@ -92,6 +97,9 @@ def test_runner_contract_with_mocked_colmap_commands(tmp_path) -> None:
     assert result.sparse_point_count == 2
     assert result.ply_point_count == 2
     assert result.output_ply == output_ply
+    assert result.model_metadata is not None
+    assert len(result.model_metadata.cameras) == 1
+    assert [image.center for image in result.model_metadata.registered_images] == [(0.0, 0.0, 0.0), (-1.0, 0.0, 0.0), (-2.0, 0.0, 0.0)]
 
 
 def test_resolve_colmap_executable_reports_missing_configured_path(tmp_path) -> None:
@@ -106,6 +114,51 @@ def test_read_ascii_ply_vertex_count(tmp_path) -> None:
     ply_path.write_text(_tiny_ply(12), encoding="utf-8")
 
     assert read_ascii_ply_vertex_count(ply_path) == 12
+
+
+def test_parse_colmap_text_model_reads_cameras_images_and_bounds(tmp_path) -> None:
+    model_dir = tmp_path / "model-text"
+    model_dir.mkdir()
+    (model_dir / "cameras.txt").write_text("1 PINHOLE 800 600 700 710 400 300\n", encoding="utf-8")
+    (model_dir / "images.txt").write_text(
+        "\n".join(
+            [
+                "# Image list",
+                "1 1 0 0 0 0 0 0 1 frame_000001.png",
+                "10 10 -1",
+                "2 1 0 0 0 0 2 -3 1 frame_000002.png",
+                "10 10 -1",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    metadata = parse_colmap_text_model(model_dir)
+
+    assert metadata.cameras[0].camera_id == 1
+    assert metadata.cameras[0].model == "PINHOLE"
+    assert metadata.cameras[0].params == (700.0, 710.0, 400.0, 300.0)
+    assert [image.name for image in metadata.registered_images] == ["frame_000001.png", "frame_000002.png"]
+    assert metadata.registered_images[0].center == (0.0, 0.0, 0.0)
+    assert metadata.registered_images[1].center == (0.0, -2.0, 3.0)
+    assert metadata.trajectory_bounds is not None
+    assert metadata.trajectory_bounds.min == (0.0, -2.0, 0.0)
+    assert metadata.trajectory_bounds.max == (0.0, 0.0, 3.0)
+
+
+def test_parse_colmap_images_preserves_names_with_spaces(tmp_path) -> None:
+    images_txt = tmp_path / "images.txt"
+    images_txt.write_text("3 1 0 0 0 4 0 0 1 frame with spaces.png\n0 0 -1\n", encoding="utf-8")
+
+    images = parse_colmap_images(images_txt)
+
+    assert images[0].name == "frame with spaces.png"
+    assert images[0].center == (-4.0, 0.0, 0.0)
+
+
+def test_parse_colmap_cameras_skips_missing_file(tmp_path) -> None:
+    assert parse_colmap_cameras(tmp_path / "missing-cameras.txt") == []
 
 
 def _tiny_ply(point_count: int) -> str:

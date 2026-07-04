@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { formatBytes, formatViewerArtifactType, isThreeViewerArtifact } from '../src/viewer/viewerHelpers.ts'
+import { artifactPriority, formatBytes, formatViewerArtifactType, isThreeViewerArtifact, sortArtifactsForViewer } from '../src/viewer/viewerHelpers.ts'
 
 test('formats viewer artifact labels', () => {
   assert.equal(formatViewerArtifactType('debug_frame_cloud_ply'), 'Debug frame planes')
@@ -25,3 +25,40 @@ test('formats artifact sizes for stats panel', () => {
   assert.equal(formatBytes(1536), '1.5 KB')
   assert.equal(formatBytes(2 * 1024 * 1024), '2.0 MB')
 })
+
+test('sorts real artifacts before debug and placeholder artifacts', () => {
+  const artifacts = [
+    fakeArtifact('exports/placeholder-reconstruction-spike-1234.ply', 'point_cloud_ply'),
+    fakeArtifact('metadata/reconstruction_spike.json', 'debug_report'),
+    fakeArtifact('reconstruction/debug-frame-room.ply', 'debug_frame_cloud_ply'),
+    fakeArtifact('reconstruction/splat.ply', 'splat_ply'),
+    fakeArtifact('reconstruction/sparse-point-cloud.ply', 'point_cloud_ply'),
+  ]
+
+  assert.deepEqual(
+    sortArtifactsForViewer(artifacts).map((artifact) => artifact.relative_path),
+    [
+      'reconstruction/sparse-point-cloud.ply',
+      'reconstruction/splat.ply',
+      'reconstruction/debug-frame-room.ply',
+      'metadata/reconstruction_spike.json',
+      'exports/placeholder-reconstruction-spike-1234.ply',
+    ],
+  )
+  assert.equal(artifactPriority(artifacts[0]), 90)
+})
+
+function fakeArtifact(relativePath, artifactType) {
+  return {
+    id: relativePath,
+    project_id: 'project',
+    name: relativePath.split('/').pop(),
+    relative_path: relativePath,
+    artifact_type: artifactType,
+    viewer_supported: true,
+    size_bytes: 1,
+    modified_at: '2026-07-04T00:00:00+00:00',
+    download_url: '/download',
+    description: '',
+  }
+}

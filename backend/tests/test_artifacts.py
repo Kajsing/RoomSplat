@@ -40,6 +40,33 @@ def test_artifact_listing_labels_reconstruction_and_debug_files(tmp_path, monkey
     assert "not a reconstruction" in debug_cloud["description"].lower()
     assert {artifact["viewer_supported"] for artifact in artifacts if artifact["artifact_type"] == "debug_report"} == {True}
     assert {artifact["viewer_supported"] for artifact in artifacts if artifact["artifact_type"] == "mesh_glb"} == {True}
+    assert [artifact["relative_path"] for artifact in artifacts] == [
+        "reconstruction/sparse-point-cloud.ply",
+        "reconstruction/pointcloud.ply",
+        "reconstruction/splat.ply",
+        "exports/result.glb",
+        "reconstruction/debug-frame-room.ply",
+        "metadata/reconstruction_spike.json",
+    ]
+
+
+def test_artifact_listing_sorts_placeholder_exports_last(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "Artifact order"}).json()
+    project_dir = tmp_path / project["id"]
+    (project_dir / "reconstruction" / "sparse-point-cloud.ply").write_text(_tiny_ply(), encoding="utf-8")
+    (project_dir / "reconstruction" / "debug-frame-room.ply").write_text(_tiny_ply(), encoding="utf-8")
+    (project_dir / "exports" / "placeholder-reconstruction-spike-deadbeef.ply").write_text(_tiny_ply(), encoding="utf-8")
+
+    artifacts = client.get(f"/projects/{project['id']}/artifacts").json()["artifacts"]
+
+    assert [artifact["relative_path"] for artifact in artifacts] == [
+        "reconstruction/sparse-point-cloud.ply",
+        "reconstruction/debug-frame-room.ply",
+        "exports/placeholder-reconstruction-spike-deadbeef.ply",
+    ]
+    assert "not a real reconstruction" in artifacts[-1]["description"].lower()
 
 
 def test_artifact_download_serves_file(tmp_path, monkeypatch) -> None:

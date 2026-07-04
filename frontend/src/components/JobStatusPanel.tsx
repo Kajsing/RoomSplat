@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createJob, getJob, Job, listJobs, Project } from '../api'
 
+type ReconstructionPreset = 'quick' | 'balanced' | 'detail'
+type ReconstructionMatcher = 'exhaustive' | 'sequential'
+
 type JobStatusPanelProps = {
   project: Project | null
   activeJob: Job | null
@@ -10,6 +13,9 @@ type JobStatusPanelProps = {
 
 export default function JobStatusPanel({ project, activeJob, onJobChange }: JobStatusPanelProps) {
   const [jobs, setJobs] = useState<Job[]>([])
+  const [preset, setPreset] = useState<ReconstructionPreset>('balanced')
+  const [matcher, setMatcher] = useState<ReconstructionMatcher>('exhaustive')
+  const [useGpu, setUseGpu] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -56,7 +62,7 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
     setError(null)
     setIsStarting(true)
     try {
-      const job = await createJob(project.id, 'reconstruct_point_cloud', {})
+      const job = await createJob(project.id, 'reconstruct_point_cloud', { preset, matcher, use_gpu: useGpu })
       onJobChange(job)
       setJobs((currentJobs) => upsertJob(currentJobs, job))
     } catch (reason) {
@@ -80,6 +86,29 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
         <button disabled={!project || isStarting} onClick={handleReconstructionSpike} style={secondaryButtonStyle} type="button">
           Run reconstruction spike
         </button>
+      </div>
+
+      <div style={optionsStyle}>
+        <label style={inputLabelStyle}>
+          Preset
+          <select onChange={(event) => setPreset(event.target.value as ReconstructionPreset)} style={selectStyle} value={preset}>
+            <option value="quick">Quick</option>
+            <option value="balanced">Balanced</option>
+            <option value="detail">Detail</option>
+          </select>
+        </label>
+        <label style={inputLabelStyle}>
+          Matcher
+          <select onChange={(event) => setMatcher(event.target.value as ReconstructionMatcher)} style={selectStyle} value={matcher}>
+            <option value="exhaustive">Exhaustive</option>
+            <option value="sequential">Sequential</option>
+          </select>
+        </label>
+        <label style={checkLabelStyle}>
+          <input checked={useGpu} onChange={(event) => setUseGpu(event.target.checked)} type="checkbox" />
+          GPU
+        </label>
+        <span style={hintStyle}>{presetHint(preset)}</span>
       </div>
 
       {activeJob ? (
@@ -133,9 +162,21 @@ function summarizeResult(job: Job) {
     return `${job.result?.sampled_points ?? '?'} debug points`
   }
   if (job.job_type === 'reconstruct_point_cloud') {
-    return `${job.result?.ply_point_count ?? '?'} points, ${job.result?.registered_frame_count ?? '?'} registered frames`
+    const preset = typeof job.result?.params === 'object' && job.result.params ? (job.result.params as Record<string, unknown>).preset : undefined
+    return `${job.result?.ply_point_count ?? '?'} points, ${job.result?.registered_frame_count ?? '?'} registered frames${
+      preset ? `, ${preset} preset` : ''
+    }`
   }
   return String(job.result?.status ?? 'report ready')
+}
+
+function presetHint(preset: ReconstructionPreset) {
+  const hints = {
+    quick: 'Recommended extraction: stride 3, max 24 frames.',
+    balanced: 'Recommended extraction: stride 2, max 60 frames.',
+    detail: 'Recommended extraction: stride 1, max 120 frames.',
+  }
+  return hints[preset]
 }
 
 const sectionStyle = {
@@ -176,7 +217,45 @@ const buttonRowStyle = {
   display: 'flex',
   flexWrap: 'wrap',
   gap: 8,
+  marginBottom: 8,
+} satisfies CSSProperties
+
+const optionsStyle = {
+  alignItems: 'end',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 10,
   marginBottom: 16,
+} satisfies CSSProperties
+
+const inputLabelStyle = {
+  color: '#57606a',
+  display: 'grid',
+  fontSize: 13,
+  gap: 4,
+} satisfies CSSProperties
+
+const selectStyle = {
+  border: '1px solid #d0d7de',
+  borderRadius: 6,
+  color: '#24292f',
+  padding: '7px 8px',
+} satisfies CSSProperties
+
+const checkLabelStyle = {
+  alignItems: 'center',
+  color: '#57606a',
+  display: 'flex',
+  fontSize: 13,
+  gap: 6,
+  minHeight: 34,
+} satisfies CSSProperties
+
+const hintStyle = {
+  color: '#57606a',
+  fontSize: 13,
+  minHeight: 34,
+  paddingTop: 9,
 } satisfies CSSProperties
 
 const activeJobStyle = {

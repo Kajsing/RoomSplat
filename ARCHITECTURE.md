@@ -105,7 +105,7 @@ The backend discovers result artifacts and labels them before the frontend displ
 Current viewer behavior:
 
 - `debug_frame_cloud_ply`: Three.js point cloud view of debug frame planes sampled from flat extracted frames and placed in 3D; not reconstruction. The viewer can show frame markers from `metadata/debug_frame_cloud.json`.
-- `point_cloud_ply`: Three.js point cloud view with orbit, pan, zoom, point size, color mode, grid, axes controls, and reconstruction metadata when `metadata/reconstruction.json` exists.
+- `point_cloud_ply`: Three.js point cloud view with orbit, pan, zoom, point size, color mode, points/cameras/path/grid/axes controls, and reconstruction metadata when `metadata/reconstruction.json` exists.
 - `splat_ply`: attempts GaussianSplats3D rendering first; if the loader rejects the file, falls back to point-cloud preview with an explicit message.
 - `mesh_glb`: Three.js GLB scene loading through `GLTFLoader`.
 - `debug_report`: JSON/debug text, not a 3D artifact.
@@ -118,9 +118,11 @@ The first real reconstruction preview path is `reconstruct_point_cloud`:
 frames -> local COLMAP feature extraction/matching/mapper -> reconstruction/sparse-point-cloud.ply
 ```
 
-The job writes `metadata/reconstruction.json` with `mode: reconstruction`, `artifact_type: point_cloud_ply`, `is_reconstruction: true`, input/registered frame counts, sparse point counts, COLMAP workspace metadata, and quality notes. It fails with setup guidance when `colmap.exe` is missing instead of producing placeholder geometry.
+The job writes `metadata/reconstruction.json` with `mode: reconstruction`, `artifact_type: point_cloud_ply`, `is_reconstruction: true`, input/registered frame counts, sparse point counts, COLMAP workspace metadata, camera intrinsics, registered image poses, camera centers, camera path, trajectory bounds, run params, and quality notes. It fails with setup guidance when `colmap.exe` is missing instead of producing placeholder geometry.
 
-Viewer controls include large-view mode, reset/fit, front/side/top/default camera presets, screenshot capture, point size, color mode, grid/axes toggles, artifact stats, and debug warnings.
+Viewer controls include large-view mode, reset/fit, front/side/top/default camera presets, screenshot capture, point size, color mode, points/cameras/path/grid/axes toggles, artifact stats, and debug warnings.
+
+Artifact ordering intentionally puts real reconstruction artifacts before splats/GLB, debug frame planes, debug reports, and placeholder exports so the UI does not visually promote debug data as the primary result.
 
 Expected future real splat artifact contract:
 
@@ -148,7 +150,7 @@ Current export behavior:
 5. Local worker runs frame extraction, creates images in `frames/`, and writes metadata.
 6. Optional debug-frame-cloud job consumes `metadata/frame_extraction.json` and `frames/`, then writes `reconstruction/debug-frame-room.ply` and `metadata/debug_frame_cloud.json`.
 7. Reconstruction-spike job consumes frames and writes dependency/output-contract guidance.
-8. Real sparse point-cloud reconstruction consumes frames through local COLMAP and writes `reconstruction/sparse-point-cloud.ply` plus `metadata/reconstruction.json`.
+8. Real sparse point-cloud reconstruction consumes frames through local COLMAP and writes `reconstruction/sparse-point-cloud.ply` plus `metadata/reconstruction.json`, including parsed `cameras.txt`, `images.txt`, and `points3D.txt` summary data.
 9. Future splat reconstruction consumes frames/poses and produces splat artifacts in `reconstruction/`.
 10. Artifact service labels reconstruction/export/debug files.
 11. Export service creates user-facing files in `exports/`.

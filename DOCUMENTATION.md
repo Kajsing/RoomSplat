@@ -2,13 +2,13 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented.
-Current milestone: Real Reconstruction Preview v1 complete and pushed.
-Next planned milestone: Reconstruction Quality + Camera Path v1.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented.
+Current milestone: Reconstruction Quality + Camera Path v1 complete.
+Next planned milestone: real Gaussian Splatting reconstruction/training adapter.
 
 ## Latest completed milestone
 
-Usable 3D Viewer Preview.
+Reconstruction Quality + Camera Path v1.
 
 ## How to run
 
@@ -115,6 +115,20 @@ npm --prefix frontend run build
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed for final Usable 3D Viewer validation with chunk-size warning
 - `pnpm dlx npm@latest --prefix frontend audit --audit-level=moderate` - passed, 0 vulnerabilities
 - `git diff --check` - passed with line-ending warnings only
+- Direct `ReconstructionService.reconstruct_point_cloud` runs with local COLMAP 4.1.0 no-CUDA for Reconstruction Quality + Camera Path v1 - passed for cup/chair/shoe:
+  - cup: 8 input frames, 8 registered frames, 729 PLY points, 8 cameras
+  - chair: 14 input frames, 14 registered frames, 3,723 PLY points, 14 cameras
+  - shoe: 10 input frames, 10 registered frames, 2,041 PLY points, 10 cameras
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest pipeline/tests/test_colmap_sparse_runner.py backend/tests/test_jobs.py backend/tests/test_artifacts.py` - passed, 39 tests after camera/path metadata changes
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 5 frontend helper tests after artifact-order changes
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after camera/path viewer changes with chunk-size warning
+- Browser smoke at `http://127.0.0.1:5173` for Reconstruction Quality + Camera Path v1 - passed with Objectron cup project, `sparse-point-cloud.ply`, point/camera/path stats, toggles, real reconstruction notice, and nonblank canvas pixel check
+- Browser screenshot saved to ignored `data/manual-verification/reconstruction-quality-camera-path-v1.png`
+- Browser pixel check for Reconstruction Quality + Camera Path v1 canvas crop - nonblank, 3,857 unique colors, non-background ratio 0.059002
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 67 tests for final Reconstruction Quality + Camera Path v1 validation
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 5 frontend helper tests for final Reconstruction Quality + Camera Path v1 validation
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed for final Reconstruction Quality + Camera Path v1 validation with chunk-size warning
+- `pnpm dlx npm@latest --prefix frontend audit --audit-level=moderate` - passed, 0 vulnerabilities
 - Codex Security config preflight for `security_scan` - ready after declaring native v1 multi-agent runtime from tool surface
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 37 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 8
@@ -131,7 +145,22 @@ npm --prefix frontend run build
 
 ## Next step
 
-Recommended next milestone: Reconstruction Quality + Camera Path v1. See `docs/next-goals/reconstruction-quality-camera-path-v1.md`.
+Recommended next milestone after current work: real Gaussian Splatting reconstruction/training adapter.
+
+## Reconstruction Quality + Camera Path v1 notes
+
+- Added COLMAP text-model parsing for `cameras.txt`, `images.txt`, and `points3D.txt` summary counts.
+- `ColmapRunResult` now carries parsed camera intrinsics, registered image poses, camera centers, and trajectory bounds.
+- `metadata/reconstruction.json` now includes `cameras[]`, `registered_images[]`, `camera_path[]`, `trajectory_bounds`, and preset metadata.
+- Added quick/balanced/detail reconstruction presets in the UI and backend metadata. These presets currently document recommended extraction density and do not silently re-extract existing frames.
+- Three.js point-cloud viewer now has toggles for points, cameras, path, grid, and axes.
+- Real COLMAP point-cloud artifacts can show camera frustums and trajectory overlays from reconstruction metadata.
+- Artifact ordering now prioritizes real `reconstruction/sparse-point-cloud.ply` before splats/GLB, debug frame planes, debug reports, and placeholder exports.
+- Frontend helper tests cover artifact ordering; backend/pipeline tests cover parser behavior, metadata propagation, preset validation, and artifact ordering.
+- Local Objectron validation with COLMAP 4.1.0 no-CUDA:
+  - cup project `9522ce63dbfc454fb638fae38375863c`: 8 extracted frames, 8 registered frames, 729 PLY points, 8 cameras, inspectable.
+  - chair project `eef6d5739f524dc8a45eadc43aa0c5ec`: 14 extracted frames, 14 registered frames, 3,723 PLY points, 14 cameras, inspectable.
+  - shoe project `daae7b0411d54bbba2b95f71341ad5df`: 10 extracted frames, 10 registered frames, 2,041 PLY points, 10 cameras, inspectable.
 
 ## Reconstruction Quality + Camera Path v1 plan
 

@@ -84,10 +84,19 @@ project-root/
 - `sparse_point_count`
 - `ply_point_count`
 - `quality.status`
+- `cameras[]` parsed from COLMAP `cameras.txt`
+- `registered_images[]` parsed from COLMAP `images.txt`, including `qvec`, `tvec`, and camera center
+- `camera_path[]` with ordered camera positions for viewer trajectory rendering
+- `trajectory_bounds`
+- `params.preset`
 - `params.matcher`
 - `params.use_gpu`
+- `params.recommended_frame_stride`
+- `params.recommended_max_frames`
 - `colmap.workspace`
 - `output_path: reconstruction/sparse-point-cloud.ply`
+
+Artifact listing sorts the primary real sparse point cloud before other point clouds, splats, GLB files, debug frame planes, debug reports, and placeholder exports. Placeholder exports remain downloadable, but should appear visually lower priority than real outputs.
 
 ## Export API
 

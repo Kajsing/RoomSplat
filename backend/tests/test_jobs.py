@@ -13,7 +13,13 @@ from app.config import AppConfig
 from app.main import app
 from app.services.debug_frame_cloud import DebugFrameCloudService
 import app.services.reconstruction_jobs as reconstruction_jobs
-from pipeline.adapters.colmap_sparse_runner import ColmapRunResult
+from pipeline.adapters.colmap_sparse_runner import (
+    ColmapCamera,
+    ColmapModelMetadata,
+    ColmapRegisteredImage,
+    ColmapRunResult,
+    ColmapTrajectoryBounds,
+)
 from app.services.job_store import JobStore
 from app.services.project_store import ProjectStore
 from app.services.video_import import VideoImportService
@@ -275,11 +281,21 @@ def test_worker_runs_point_cloud_reconstruction_job_with_mocked_colmap(tmp_path,
                 sparse_point_count=64,
                 ply_point_count=64,
                 command_count=5,
+                model_metadata=ColmapModelMetadata(
+                    cameras=(ColmapCamera(1, "PINHOLE", 8, 6, (6.0, 6.0, 4.0, 3.0)),),
+                    registered_images=(
+                        ColmapRegisteredImage(1, 1, "frame_000001.png", (1.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+                        ColmapRegisteredImage(2, 1, "frame_000002.png", (1.0, 0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)),
+                        ColmapRegisteredImage(3, 1, "frame_000003.png", (1.0, 0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (-2.0, 0.0, 0.0)),
+                        ColmapRegisteredImage(4, 1, "frame_000004.png", (1.0, 0.0, 0.0, 0.0), (3.0, 0.0, 0.0), (-3.0, 0.0, 0.0)),
+                    ),
+                    trajectory_bounds=ColmapTrajectoryBounds(min=(-3.0, 0.0, 0.0), max=(0.0, 0.0, 0.0)),
+                ),
             )
 
     monkeypatch.setattr(reconstruction_jobs, "ColmapSparseReconstructionRunner", FakeRunner)
     job_store = JobStore(project_store)
-    job = job_store.create_job(project.id, "reconstruct_point_cloud", {"matcher": "sequential", "use_gpu": True})
+    job = job_store.create_job(project.id, "reconstruct_point_cloud", {"preset": "detail", "matcher": "sequential", "use_gpu": True})
     worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path, colmap_path="fake-colmap"))
 
     completed = worker.run_job(project.id, job.id)
@@ -296,10 +312,34 @@ def test_worker_runs_point_cloud_reconstruction_job_with_mocked_colmap(tmp_path,
     assert completed.result["registered_frame_count"] == 4
     assert completed.result["ply_point_count"] == 64
     assert completed.result["quality"]["status"] == "inspectable"
-    assert completed.result["params"] == {"matcher": "sequential", "use_gpu": True}
+    assert completed.result["params"]["preset"] == "detail"
+    assert completed.result["params"]["matcher"] == "sequential"
+    assert completed.result["params"]["use_gpu"] is True
+    assert completed.result["params"]["recommended_frame_stride"] == 1
+    assert completed.result["cameras"][0]["model"] == "PINHOLE"
+    assert len(completed.result["registered_images"]) == 4
+    assert completed.result["registered_images"][1]["center"] == {"x": -1.0, "y": 0.0, "z": 0.0}
+    assert completed.result["camera_path"][3]["position"] == {"x": -3.0, "y": 0.0, "z": 0.0}
+    assert completed.result["trajectory_bounds"]["min"] == {"x": -3.0, "y": 0.0, "z": 0.0}
     assert (project_dir / "reconstruction" / "sparse-point-cloud.ply").is_file()
     metadata = json.loads((project_dir / "metadata" / "reconstruction.json").read_text(encoding="utf-8"))
     assert metadata["colmap"]["workspace"].startswith("reconstruction/colmap-workspace/")
+
+
+def test_worker_rejects_unknown_point_cloud_reconstruction_preset(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Point cloud bad preset")
+    project_dir = tmp_path / project.id
+    _write_frames(project_dir / "frames", count=3)
+    _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=3)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "reconstruct_point_cloud", {"preset": "huge"})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path, colmap_path=str(tmp_path / "colmap.exe")))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "failed"
+    assert completed.error == "preset must be 'quick', 'balanced', or 'detail'."
 
 
 def test_worker_rejects_point_cloud_reconstruction_frames_dir_outside_project(tmp_path) -> None:
