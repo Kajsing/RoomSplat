@@ -477,7 +477,7 @@ function applyColorMode(geometry: THREE.BufferGeometry, colorMode: ColorMode) {
 
 function fitCameraToObject(object: THREE.Object3D | undefined, camera: THREE.PerspectiveCamera | null, controls: OrbitControls | null) {
   if (!object || !camera || !controls) return
-  const box = new THREE.Box3().setFromObject(object)
+  const box = visibleGeometryBox(object)
   if (box.isEmpty()) return
   const center = box.getCenter(new THREE.Vector3())
   const size = box.getSize(new THREE.Vector3())
@@ -498,7 +498,7 @@ function setCameraPreset(
   controls: OrbitControls | null,
 ) {
   if (!camera || !controls) return
-  const box = object ? new THREE.Box3().setFromObject(object) : new THREE.Box3()
+  const box = object ? visibleGeometryBox(object) : new THREE.Box3()
   const center = box.isEmpty() ? new THREE.Vector3(0, 0, 0) : box.getCenter(new THREE.Vector3())
   const size = box.isEmpty() ? new THREE.Vector3(2, 2, 2) : box.getSize(new THREE.Vector3())
   const distance = Math.max(size.x, size.y, size.z, 1) * 1.8
@@ -512,6 +512,23 @@ function setCameraPreset(
   camera.lookAt(center)
   controls.target.copy(center)
   controls.update()
+}
+
+function visibleGeometryBox(object: THREE.Object3D) {
+  const box = new THREE.Box3()
+  object.updateWorldMatrix(true, true)
+  object.traverse((child) => {
+    if (!child.visible) return
+    const geometry = (child as THREE.Object3D & { geometry?: THREE.BufferGeometry }).geometry
+    const position = geometry?.getAttribute('position')
+    if (!geometry || !position) return
+    if (!geometry.boundingBox) geometry.computeBoundingBox()
+    const childBox = geometry.boundingBox?.clone()
+    if (!childBox || childBox.isEmpty()) return
+    childBox.applyMatrix4(child.matrixWorld)
+    box.union(childBox)
+  })
+  return box
 }
 
 function createFrameMarkers(metadata: DebugFrameCloudMetadata) {

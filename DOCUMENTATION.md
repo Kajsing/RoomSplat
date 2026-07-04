@@ -244,6 +244,24 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
 - Result: `metadata/splat_reconstruction.json` was updated with `status: blocked_missing_dependencies`, `output_path: null`, and no fake `reconstruction/splat.ply`.
 - Next step for real splat output: install a Windows-native isolated Nerfstudio environment with compatible PyTorch/CUDA, CUDA Toolkit/`nvcc`, and Nerfstudio CLI commands, from a Visual Studio Developer Command Prompt, then set `ROOMSPLAT_NERFSTUDIO_BIN_DIR` or the three `ROOMSPLAT_NS_*_PATH` values and rerun `reconstruct_splat`.
 
+## Recognizable object viewer notes
+
+- Created a new ignored local cup project from `data/sample-videos/objectron-cup-batch-3-4.MOV`.
+- Extracted 53 frames at 1440x1920 and ran real COLMAP sparse reconstruction with exhaustive matching and CPU/no-GPU.
+- Result: 53 registered frames and 7,535 sparse points.
+- Generated `reconstruction/recognizable-cup-point-cloud.ply` as a viewer-normalized postprocess of the real sparse COLMAP point cloud:
+  - color-focused magenta cup points,
+  - largest connected voxel component,
+  - center/scale transform for inspection,
+  - 1,174 points,
+  - no synthetic geometry.
+- Browser verification loaded `recognizable-cup-point-cloud.ply` as `point_cloud_ply` in the Three.js viewer.
+- Browser large view with grid/axes/cameras/path off showed a recognizable cup-like shape with rim/body/handle.
+- Pixel check for `data/manual-verification/recognizable-cup-browser-accepted.png` found 14,738 unique colors, 26,043 non-background pixels, 7,450 object-colored pixels, and an object-colored bounding box of 349x391 px.
+- Dense COLMAP was attempted on the stronger chair reconstruction, but local COLMAP reported: `Dense stereo reconstruction requires CUDA, which is not available on your system.`
+- Fixed viewer camera fitting/preset bounds to use visible geometry only, so hidden camera/path overlays do not keep small artifacts zoomed out.
+- This satisfies the current visual milestone as a real sparse point-cloud artifact, not as a Gaussian splat; real splat training remains blocked by missing CUDA Toolkit/`nvcc` and Nerfstudio CLI commands.
+
 ## Usable 3D Viewer Preview notes
 
 - Extended `debug_frame_cloud` job params: `max_points`, `frame_step`, `arc_degrees`, and `plane_width`.
