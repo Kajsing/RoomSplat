@@ -435,7 +435,7 @@ async function loadSplat(sourceUrl: string): Promise<LoadedArtifact> {
     await withTimeout(
       splatObject.addSplatScene(sourceUrl, {
         format: GaussianSplats3D.SceneFormat.Ply,
-        progressiveLoad: true,
+        progressiveLoad: false,
         showLoadingUI: false,
         splatAlphaRemovalThreshold: 5,
       }),

@@ -135,6 +135,11 @@ class SplatReconstructionService:
             "not_reconstruction": False,
             "output_path": SPLAT_OUTPUT_RELATIVE_PATH.as_posix(),
             "warning": None,
+            "commands": {
+                "process_data": run_result.process_command,
+                "train": run_result.train_command,
+                "export": run_result.export_command,
+            },
             "nerfstudio": {
                 "dataset_dir": run_result.paths.dataset_dir.relative_to(project_dir).as_posix(),
                 "output_dir": run_result.paths.output_dir.relative_to(project_dir).as_posix(),

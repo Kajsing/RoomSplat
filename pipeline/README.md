@@ -70,6 +70,7 @@ The backend job:
 - checks `ns-process-data`, `ns-train`, `ns-export`, Python-side import visibility, backend Python runtime, conda availability, GPU/CUDA signals, Visual Studio C++ compiler readiness, FFmpeg, and COLMAP,
 - writes `metadata/splat_reconstruction.json` for both blocked and successful runs,
 - runs `ns-process-data images`, `ns-train splatfacto`, and `ns-export gaussian-splat` when dependencies are ready,
+- passes `--viewer.quit-on-train-completion True` so short local smoke trainings return control after `--max-num-iterations`,
 - copies the exported Gaussian splat PLY to `reconstruction/splat.ply`,
 - never writes fake splat geometry when dependencies are missing.
 
@@ -90,11 +91,12 @@ Current local preflight from July 4, 2026:
 - FFmpeg is available and local COLMAP is configured under `data/tools`.
 - Backend Python is 3.12; the adapter reports this for diagnostics, but Nerfstudio should still be installed in its own isolated Python environment. Local Python 3.8 hit modern dependency resolver issues, so the current experiments use Python 3.10.
 - Local micromamba is installed under ignored `data/tools/micromamba`.
-- `roomsplat-nerfstudio-py310` can import PyTorch 2.1.2+cu118, Nerfstudio 1.1.5, and gsplat 1.4.0, but gsplat CUDA compilation fails with current VS 2022 tooling and CUDA 11.8.
+- `roomsplat-nerfstudio-py310` can import PyTorch 2.1.2+cu118, Nerfstudio 1.1.5, and precompiled `gsplat==1.4.0+pt21cu118` from `https://docs.gsplat.studio/whl/pt21cu118`.
 - `roomsplat-nerfstudio-cu124` can import PyTorch 2.6.0+cu124, Nerfstudio 1.1.5, and gsplat 1.4.0; its conda-forge CUDA compiler layout puts `nvcc.exe` under `Library/bin`.
 - The adapter supports both `env/bin/nvcc.exe` and `env/Library/bin/nvcc.exe` layouts for `CUDA_HOME`.
 - COLMAP 3.9.1 no-CUDA is currently used for Nerfstudio process-data compatibility. COLMAP 4.1.0 works for RoomSplat sparse point-cloud jobs, but Nerfstudio 1.1.5 still sends `SiftExtraction.use_gpu`, which COLMAP 4.1 no longer accepts.
-- The Objectron cup `reconstruct_splat` run now reaches `ns-train splatfacto`, but no `reconstruction/splat.ply` is produced yet because gsplat's CUDA extension build times out/fails on the current Windows CUDA/MSVC matrix.
+- The Objectron cup `reconstruct_splat` run produces `reconstruction/splat.ply` with `status: succeeded` using the `py310` environment and precompiled gsplat wheel.
+- Browser verification lists the artifact as `splat_ply` and displays it through point-cloud fallback with 788 vertices. GaussianSplats3D still times out on this Nerfstudio PLY, so native browser splat rendering remains a loader-compatibility task.
 
 Output labels must stay explicit:
 

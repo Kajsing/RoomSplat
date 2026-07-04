@@ -33,11 +33,23 @@ Environment attempts:
   - Micromamba selected conda-forge CUDA 13.3 compiler packages. Driver supports CUDA UMD 13.3.
   - Fails/times out inside gsplat CUDA extension build. Latest clear failure is CCCL/MSVC traditional preprocessor handling; a 1-iteration smoke run timed out after 15 minutes and produced no splat.
 
+Breakthrough:
+
+- Installed official precompiled `gsplat==1.4.0+pt21cu118` into `roomsplat-nerfstudio-py310` from `https://docs.gsplat.studio/whl/pt21cu118`.
+- Verified the env imports torch 2.1.2+cu118, sees the RTX 3080 Ti, imports gsplat 1.4.0+pt21cu118, and loads the gsplat CUDA wrapper.
+- `ns-train splatfacto --max-num-iterations 1` wrote a checkpoint but did not exit until `--viewer.quit-on-train-completion True` was added.
+- Direct `ns-export gaussian-splat` proved the checkpoint could export `splat.ply` once `PYTHONUTF8=1` / `PYTHONIOENCODING=utf-8` were active.
+- Fixed the adapter export command so `<config.yml>` is replaced without dropping `--output-dir`.
+
 Current result:
 
-- No real `data/9522ce63dbfc454fb638fae38375863c/reconstruction/splat.ply` was produced.
-- `metadata/splat_reconstruction.json` records `status: failed`, `is_reconstruction: false`, `output_path: null`.
-- This is now a gsplat Windows CUDA build-matrix blocker, not a RoomSplat artifact/job routing blocker.
+- Real `data/9522ce63dbfc454fb638fae38375863c/reconstruction/splat.ply` was produced by the normal RoomSplat `SplatReconstructionService.reconstruct_splat` flow.
+- `metadata/splat_reconstruction.json` records `status: succeeded`, `is_reconstruction: true`, `not_reconstruction: false`, `output_path: reconstruction/splat.ply`, and `command_count: 3`.
+- The PLY is a binary little-endian Nerfstudio 1.1.5 Gaussian splat PLY with 788 vertices and size 197,014 bytes after the final metadata-refresh run.
+- Browser verification selected `splat.ply` as `Splat PLY` and displayed it in large view as point-cloud fallback with 781 points.
+- Screenshot saved to ignored `data/manual-verification/first-real-roomsplat-splat-large-view.png`.
+- Pixel check on the screenshot found 4,450 unique colors, 14,791 non-background pixels, and 1,520 colored pixels.
+- GaussianSplats3D still times out on the Nerfstudio PLY; current browser viewing is a clearly labeled fallback, not native splat shader rendering.
 
 Validation:
 
@@ -52,9 +64,17 @@ Validation:
   - Result: passed with the existing Vite large chunk warning.
   - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts`
   - Result: 6 passed.
+- Final validation after first real splat success:
+  - `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests`
+  - Result: 84 passed.
+  - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts`
+  - Result: 6 passed.
+  - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build`
+  - Result: passed with the existing Vite large chunk warning.
 
 Remaining risk:
 
 - The local ignored envs are large and experimental.
-- The current app changes improve diagnostics and subprocess setup but do not complete the first real splat goal.
-- Next best path is to pin a known-good gsplat Windows build matrix: either older MSVC tooling compatible with CUDA 11.8, or a newer Nerfstudio/gsplat/PyTorch/CUDA stack with a confirmed Windows extension build.
+- The first splat is a 1-iteration smoke artifact from only 8 frames, so it proves the pipeline but is not a quality result.
+- Native GaussianSplats3D rendering for this Nerfstudio PLY remains a viewer-loader compatibility task; the current UI fallback is intentionally explicit.
+- The current known-good stack depends on a matching precompiled gsplat wheel; source/JIT gsplat builds still fail on the tested Windows CUDA/MSVC matrices.

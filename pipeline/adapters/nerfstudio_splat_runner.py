@@ -155,6 +155,8 @@ class NerfstudioSplatRunner:
             str(paths.dataset_dir),
             "--output-dir",
             str(paths.output_dir),
+            "--viewer.quit-on-train-completion",
+            "True",
         ]
         if max_iterations is not None:
             train_command.extend(["--max-num-iterations", str(max_iterations)])
@@ -194,9 +196,8 @@ class NerfstudioSplatRunner:
         self._run(train_command)
         config_path = find_latest_config(paths.output_dir)
         export_command = [
-            *export_command_template[:4],
-            str(config_path),
-            *export_command_template[5:],
+            str(config_path) if argument == "<config.yml>" else argument
+            for argument in export_command_template
         ]
         self._run(export_command)
         exported_ply = find_exported_splat_ply(paths.export_dir)

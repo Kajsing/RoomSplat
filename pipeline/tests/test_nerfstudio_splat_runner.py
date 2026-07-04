@@ -107,6 +107,7 @@ def test_nerfstudio_splat_runner_builds_argument_list_commands(tmp_path) -> None
     assert "--no-gpu" in process_command
     assert process_command[-2:] == ["--colmap-cmd", str(colmap_path)]
     assert train_command[1] == "splatfacto"
+    assert "--viewer.quit-on-train-completion" in train_command
     assert "--max-num-iterations" in train_command
     assert export_command[1] == "gaussian-splat"
     assert "<config.yml>" in export_command
@@ -188,6 +189,9 @@ def test_nerfstudio_splat_runner_contract_with_mocked_commands(tmp_path) -> None
     result = runner.run(paths, method="splatfacto", max_iterations=25)
 
     assert [Path(command[0]).stem for command in commands_seen] == ["ns-process-data", "ns-train", "ns-export"]
+    assert "--output-dir" in commands_seen[2]
+    assert str(paths.export_dir) in commands_seen[2]
+    assert "<config.yml>" not in commands_seen[2]
     assert result.config_path.name == "config.yml"
     assert result.exported_ply.name == "splat.ply"
     assert paths.final_splat_ply.is_file()

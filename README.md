@@ -12,18 +12,19 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Local project storage with `GET /projects` and `POST /projects`.
 - Video upload into project `input/` folders.
 - Deterministic frame extraction into project `frames/` folders.
-- Local background jobs for frame extraction, reconstruction-spike orchestration, debug frame planes, real sparse point-cloud reconstruction, and Nerfstudio-backed splat reconstruction readiness/training.
+- Local background jobs for frame extraction, reconstruction-spike orchestration, debug frame planes, real sparse point-cloud reconstruction, and Nerfstudio-backed splat reconstruction readiness/training/export.
 - Artifact discovery/download APIs with explicit labels for debug frame clouds, point clouds, real splats, GLB, and debug reports.
-- Browser Three.js viewer with orbit/inspect controls, large-view mode, camera presets, orientation presets, stats, screenshot capture, frame markers for debug frame clouds, camera/path overlays for COLMAP point clouds, point cloud PLY, splat PLY fallback, and GLB scenes.
+- Browser Three.js viewer with orbit/inspect controls, large-view mode, camera presets, orientation presets, stats, screenshot capture, frame markers for debug frame clouds, camera/path overlays for COLMAP point clouds, point cloud PLY, real `splat_ply` fallback viewing, and GLB scenes.
 - Export APIs and UI controls for `.ply` / `.glb` outputs, including explicit placeholder labels for debug exports.
 - Vite + React frontend displaying backend health, create/list projects, video upload, job status, and artifact viewer states.
 - Focused security baseline docs and tests for path containment, upload limits, artifact downloads, and local-only assumptions.
 
 ## What it does not do yet
 
-- Real Gaussian Splatting training is wired through a local Nerfstudio/Splatfacto adapter, but it only produces `reconstruction/splat.ply` when the Nerfstudio CLI dependencies are installed.
+- Real Gaussian Splatting training is wired through a local Nerfstudio/Splatfacto adapter and has produced the first local Objectron cup `reconstruction/splat.ply` when using a compatible isolated Nerfstudio environment.
 - Placeholder exports can be created from the reconstruction spike report for UI/workflow testing, but they are labeled as placeholders and are not real reconstruction.
 - If Nerfstudio is missing, the splat job writes `metadata/splat_reconstruction.json` with actionable blockers and does not create fake splat output.
+- The browser currently displays the first RoomSplat splat PLY through point-cloud fallback because GaussianSplats3D times out on the Nerfstudio PLY; this is a viewer-loader compatibility issue, not a fake-output path.
 - Real sparse point-cloud reconstruction requires local COLMAP.
 - General MP4/MOV extraction requires `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - No live phone/webcam streaming yet.
@@ -40,9 +41,9 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Optional for real sparse point-cloud reconstruction: COLMAP on `PATH` or configured with `ROOMSPLAT_COLMAP_PATH`.
 - Optional for real Gaussian Splatting reconstruction: a separate conda-based Nerfstudio/Splatfacto environment with `ns-process-data`, `ns-train`, `ns-export`, PyTorch/CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.
 
-GIF fixtures and tests work without ffmpeg. Real splat training is wired through the adapter and can reach local Nerfstudio/COLMAP on this machine, but `reconstruction/splat.ply` is still blocked by the Windows `gsplat` CUDA extension build matrix.
+GIF fixtures and tests work without ffmpeg. Real splat training is wired through the adapter and can reach local Nerfstudio/COLMAP on this machine.
 
-Current local machine note from the July 4, 2026 preflight: RTX 3080 Ti, Visual Studio Build Tools, FFmpeg, COLMAP, micromamba-based Nerfstudio environments, PyTorch/CUDA, `nvcc`, and the Nerfstudio CLI commands are present/configured locally. The Objectron cup `reconstruct_splat` path reaches `ns-train splatfacto`, but no real `splat.ply` is produced yet because `gsplat` fails or times out while compiling its CUDA extension on the current Windows CUDA/MSVC stack.
+Current local machine note from the July 4, 2026 preflight: RTX 3080 Ti, Visual Studio Build Tools, FFmpeg, COLMAP 3.9.1 no-CUDA, micromamba-based Nerfstudio, PyTorch 2.1.2+cu118, `nvcc`, Nerfstudio 1.1.5, and precompiled `gsplat==1.4.0+pt21cu118` are present/configured locally. The Objectron cup `reconstruct_splat` path produces a real `reconstruction/splat.ply` with `status: succeeded`.
 
 ## Configure
 
@@ -119,7 +120,7 @@ ns-export gaussian-splat --help
 
 After that, set `ROOMSPLAT_NERFSTUDIO_BIN_DIR` to the environment `Scripts` folder or set the three individual `ROOMSPLAT_NS_*_PATH` values, then rerun the `reconstruct_splat` job.
 
-Local July 4, 2026 experiments used ignored micromamba environments under `data/tools/micromamba-root/envs/`. Python 3.8 hit modern dependency resolver issues; Python 3.10 environments can import Nerfstudio and `gsplat`, and RoomSplat now prepends the isolated environment paths, configured FFmpeg/COLMAP paths, UTF-8 subprocess settings, Visual Studio build paths, and both common `nvcc` layouts. The remaining setup work is to choose a `gsplat` build matrix that actually compiles on this Windows machine.
+Local July 4, 2026 experiments used ignored micromamba environments under `data/tools/micromamba-root/envs/`. Python 3.8 hit modern dependency resolver issues. The first successful local stack is Python 3.10, PyTorch 2.1.2+cu118, Nerfstudio 1.1.5, and the precompiled Windows wheel `gsplat==1.4.0+pt21cu118` from `https://docs.gsplat.studio/whl/pt21cu118`. RoomSplat prepends the isolated environment paths, configured FFmpeg/COLMAP paths, UTF-8 subprocess settings, Visual Studio build paths, and both common `nvcc` layouts.
 
 ## Run tests
 

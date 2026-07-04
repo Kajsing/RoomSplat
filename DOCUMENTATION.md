@@ -4,7 +4,7 @@
 
 Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented.
 Current milestone: Real Splat Pipeline Exploration + First Local Splat Adapter v1 complete.
-Next planned milestone: finish a Windows-compatible gsplat CUDA build path and run first successful `splat.ply` training.
+Next planned milestone: improve native browser splat rendering for Nerfstudio PLYs and increase training quality beyond the 1-iteration smoke splat.
 
 ## Latest completed milestone
 
@@ -52,10 +52,10 @@ npm --prefix frontend run build
 - Frame extraction tests use deterministic animated GIF fixtures; general video formats require `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - Synchronous frame extraction API still exists for compatibility, but the UI now starts frame extraction through jobs.
 - Real sparse point-cloud reconstruction is integrated through local COLMAP; it requires `colmap.exe`/`COLMAP.bat` on PATH or `ROOMSPLAT_COLMAP_PATH`.
-- Real splat training is integrated through local Nerfstudio/Splatfacto and now reaches `ns-train` on the Objectron cup sample, but no real `reconstruction/splat.ply` has been produced yet.
-- The current real-splat blocker is the Windows `gsplat` CUDA extension build matrix, not missing RoomSplat routing. Local micromamba Nerfstudio environments, PyTorch/CUDA, `nvcc`, Visual Studio Build Tools, FFmpeg, and COLMAP are configured under ignored local `data/tools` paths.
+- Real splat training is integrated through local Nerfstudio/Splatfacto and produced the first local Objectron cup `reconstruction/splat.ply`.
+- The first successful local real-splat stack is Python 3.10, PyTorch 2.1.2+cu118, Nerfstudio 1.1.5, precompiled `gsplat==1.4.0+pt21cu118`, Visual Studio Build Tools, FFmpeg, and COLMAP 3.9.1 no-CUDA under ignored local `data/tools` paths.
 - COLMAP 4.1.0 works for RoomSplat sparse point-cloud jobs, but Nerfstudio 1.1.5 process-data expects older `SiftExtraction.use_gpu`; local splat attempts currently use COLMAP 3.9.1 no-CUDA through `ROOMSPLAT_COLMAP_PATH`.
-- Windows-native Nerfstudio/gsplat setup remains fragile due to CUDA, PyTorch, gsplat, and Visual Studio Build Tools compatibility requirements.
+- Windows-native Nerfstudio/gsplat setup remains fragile if gsplat falls back to source/JIT compilation; prefer a matching precompiled gsplat wheel when available.
 - `.ply` may mean point cloud or splat data depending on pipeline stage; UI must label this.
 - `.glb` export path is uncertain until representation is known.
 - Placeholder exports are available for reconstruction spike debug reports only when explicitly requested; they are labeled as placeholders and are not real reconstruction output.
@@ -335,12 +335,12 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
 
 ## First real RoomSplat splat goal continuation notes
 
-- Goal remains active: produce and view the first real RoomSplat Gaussian splat locally.
+- Goal achieved locally for first smoke artifact: produce and view the first real RoomSplat Gaussian splat PLY locally.
 - App flow is now reaching real local tools:
   - Local micromamba 2.8.1 was installed under ignored `data/tools/micromamba`.
-  - `roomsplat-nerfstudio-py310` verifies PyTorch 2.1.2+cu118, CUDA 11.8 runtime, gsplat 1.4.0, and Nerfstudio 1.1.5, but gsplat CUDA compilation fails with the current Visual Studio 2022 toolchain.
+  - `roomsplat-nerfstudio-py310` verifies PyTorch 2.1.2+cu118, CUDA 11.8 runtime, Nerfstudio 1.1.5, and precompiled `gsplat==1.4.0+pt21cu118`.
   - `roomsplat-nerfstudio-cu124` verifies PyTorch 2.6.0+cu124, torch CUDA 12.4, gsplat 1.4.0, and Nerfstudio 1.1.5. Its compiler package is conda-forge CUDA 13.3 because conda channel resolution selected current conda-forge CUDA packages.
-  - Local `.env` currently points at `roomsplat-nerfstudio-cu124`.
+  - Local `.env` currently points at `roomsplat-nerfstudio-py310`.
   - Official COLMAP 3.9.1 no-CUDA is configured through `ROOMSPLAT_COLMAP_PATH` because COLMAP 4.1 renamed `SiftExtraction.use_gpu` to `FeatureExtraction.use_gpu`, while Nerfstudio 1.1.5 still sends the older flag.
 - Runner hardening added during this goal:
   - `ROOMSPLAT_NERFSTUDIO_PYTHON_PATH` support for environment-specific torch/nerfstudio/gsplat readiness checks.
@@ -350,16 +350,31 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
   - `CUDA_HOME`/`CUDA_PATH` now support both NVIDIA layout (`env\bin\nvcc.exe`) and conda-forge layout (`env\Library\bin\nvcc.exe`).
   - Nerfstudio `ns-process-data images` runs with `--no-gpu` and configured `--colmap-cmd` for local Windows COLMAP compatibility.
 - Repeated `reconstruct_splat` attempts on Objectron cup project `9522ce63dbfc454fb638fae38375863c` now get through frame copying, COLMAP feature extraction/matching, dataset generation, and into `ns-train splatfacto`.
-- Current blocker: `ns-train` is blocked inside gsplat's JIT CUDA extension build, not in RoomSplat routing. Observed failures:
+- The breakthrough was using the official precompiled `gsplat==1.4.0+pt21cu118` wheel in `roomsplat-nerfstudio-py310` instead of letting PyPI/source gsplat compile locally.
+- Runner fixes required for the successful app flow:
+  - `ns-train` now receives `--viewer.quit-on-train-completion True`; without it, a 1-iteration run created a checkpoint but kept the viewer/training process alive.
+  - `ns-export gaussian-splat` now replaces `<config.yml>` in-place so `--output-dir` stays in the command.
+- Successful run evidence:
+  - Project: `9522ce63dbfc454fb638fae38375863c` / Objectron cup extraction smoke.
+  - `SplatReconstructionService.reconstruct_splat(..., method='splatfacto', max_iterations=1)` returned `status: succeeded`.
+  - `data/9522ce63dbfc454fb638fae38375863c/reconstruction/splat.ply` exists, 197,014 bytes.
+  - PLY header: `format binary_little_endian 1.0`, `comment Generated by Nerstudio 1.1.5`, `element vertex 788`.
+  - `metadata/splat_reconstruction.json` records `is_reconstruction: true`, `not_reconstruction: false`, `output_path: reconstruction/splat.ply`, and `command_count: 3`.
+- Browser viewer evidence:
+  - `splat.ply` is listed first as `Splat PLY`.
+  - Large-view browser smoke loaded the artifact as `splat_ply` fallback with 781 points.
+  - Screenshot: ignored `data/manual-verification/first-real-roomsplat-splat-large-view.png`.
+  - Pixel check: 1210x610 screenshot, 4,450 unique colors, 14,791 non-background pixels, 1,520 colored pixels.
+- Remaining viewer limitation:
+  - GaussianSplats3D still times out on the Nerfstudio PLY and the UI displays the file through point-cloud fallback with an explicit warning. This is now a browser loader compatibility issue, not a reconstruction/export blocker.
+- Historical failures before precompiled gsplat:
   - CUDA 11.8 env: MSVC/STL compatibility failures and CUB compile errors with current VS 2022 Build Tools.
   - CUDA 13.3 compiler + PyTorch cu124 env: CCCL/MSVC traditional preprocessor guard remains unless the gsplat/PyTorch build passes `/Zc:preprocessor` or suppresses `CCCL_IGNORE_MSVC_TRADITIONAL_PREPROCESSOR_WARNING` at the actual `nvcc` host compiler invocation.
   - A final 1-iteration smoke run timed out after 15 minutes during gsplat build/training and produced no `reconstruction/splat.ply`.
-- Result: `metadata/splat_reconstruction.json` still has `status: failed`, `is_reconstruction: false`, `output_path: null`, and no real `reconstruction/splat.ply`.
-- Recommended next technical path: stop treating this as an app bug and solve the gsplat Windows build matrix explicitly. Candidate approaches are a pinned older MSVC toolset compatible with CUDA 11.8, an official Nerfstudio/gsplat Windows build recipe for current CUDA, or a newer gsplat/Nerfstudio stack with a prebuilt compatible extension.
 - Validation after this cleanup:
-  - `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 84 tests.
-  - Bundled Node Vite build from `frontend/` - passed with the existing large chunk warning.
+  - `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 84 tests after first real splat success.
   - Bundled Node frontend helper tests - passed, 6 tests.
+  - Bundled Node Vite build from `frontend/` - passed with the existing large chunk warning.
 - Viewer now includes Orientation presets: Source, Flip X/Y/Z, Z-up to Y-up, and Y-up to Z-up.
 - Browser verification loaded the Postshot cactus sample as `splat_ply` fallback and used `Flip Y` to inspect it upright in large view.
 - Screenshot saved to ignored `data/manual-verification/cactus-orientation-flip-y-large-view.png`.

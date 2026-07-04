@@ -428,9 +428,9 @@ def test_worker_runs_splat_reconstruction_with_mocked_nerfstudio(tmp_path, monke
                 adapter=self.name,
                 method=method,
                 paths=paths,
-                process_command=[],
-                train_command=[],
-                export_command=[],
+                process_command=["ns-process-data", "images", "--data", str(paths.frames_dir)],
+                train_command=["ns-train", method, "--max-num-iterations", str(max_iterations)],
+                export_command=["ns-export", "gaussian-splat", "--load-config", str(config_path), "--output-dir", str(paths.export_dir)],
                 config_path=config_path,
                 exported_ply=exported_ply,
                 command_count=3,
@@ -449,6 +449,8 @@ def test_worker_runs_splat_reconstruction_with_mocked_nerfstudio(tmp_path, monke
     assert completed.result["is_reconstruction"] is True
     assert completed.result["not_reconstruction"] is False
     assert completed.result["output_path"] == "reconstruction/splat.ply"
+    assert completed.result["commands"]["export"][-2] == "--output-dir"
+    assert "<config.yml>" not in completed.result["commands"]["export"]
     assert completed.result["nerfstudio"]["command_count"] == 3
     assert (project_dir / "reconstruction" / "splat.ply").is_file()
 
