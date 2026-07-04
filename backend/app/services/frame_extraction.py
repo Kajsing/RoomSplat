@@ -19,9 +19,15 @@ class FrameExtractionError(ValueError):
 
 
 class FrameExtractionService:
-    def __init__(self, project_store: ProjectStore, ffmpeg_path: str | None = None) -> None:
+    def __init__(
+        self,
+        project_store: ProjectStore,
+        ffmpeg_path: str | None = None,
+        ffmpeg_timeout_seconds: int = 30 * 60,
+    ) -> None:
         self.project_store = project_store
         self.ffmpeg_path = ffmpeg_path
+        self.ffmpeg_timeout_seconds = ffmpeg_timeout_seconds
 
     def extract_frames(
         self,
@@ -117,7 +123,16 @@ class FrameExtractionService:
             command.extend(["-frames:v", str(max_frames)])
         command.append(output_pattern)
 
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=self.ffmpeg_timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise FrameExtractionError("ffmpeg frame extraction timed out.") from exc
         if result.returncode != 0:
             raise FrameExtractionError(result.stderr.strip() or "ffmpeg frame extraction failed.")
 

@@ -59,3 +59,4 @@ project-root/
 - `reconstruction_spike.json` records adapter readiness and selected interim reconstruction path when the spike is run.
 - Job metadata records queued/running/succeeded/failed status, params, result, error, timestamps, and log path.
 - All paths must stay inside the configured data directory.
+- Artifact listing and downloads must resolve paths inside the project folder; escaped symlinks are not valid artifacts.

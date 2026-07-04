@@ -35,7 +35,7 @@ class ArtifactService:
             if not directory.is_dir():
                 continue
             for path in sorted(directory.iterdir()):
-                if path.is_file() and path.suffix.lower() in ARTIFACT_EXTENSIONS:
+                if path.is_file() and path.suffix.lower() in ARTIFACT_EXTENSIONS and _is_inside_project(path, project_dir):
                     artifacts.append(self._artifact_response(project_id, project_dir, path))
 
         debug_report = (project_dir / DEBUG_REPORT).resolve()
@@ -339,3 +339,11 @@ def _ensure_inside_project(path: Path, project_dir: Path) -> None:
         path.resolve().relative_to(project_dir.resolve())
     except ValueError as exc:
         raise ArtifactServiceError("Artifact path escaped the project directory.") from exc
+
+
+def _is_inside_project(path: Path, project_dir: Path) -> bool:
+    try:
+        path.resolve().relative_to(project_dir.resolve())
+        return True
+    except ValueError:
+        return False

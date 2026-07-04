@@ -1,10 +1,13 @@
 import json
+import subprocess
 from io import BytesIO
 
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.main import app
+from app.services.frame_extraction import FrameExtractionError, FrameExtractionService
+from app.services.project_store import ProjectStore
 
 
 def test_upload_video_copies_file_and_records_metadata(tmp_path, monkeypatch) -> None:
@@ -75,6 +78,43 @@ def test_upload_rejects_unsupported_extension(tmp_path, monkeypatch) -> None:
     )
 
     assert response.status_code == 400
+
+
+def test_upload_rejects_configured_size_limit(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ROOMSPLAT_MAX_UPLOAD_MB", "1")
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "Reject large upload"}).json()
+
+    response = client.post(
+        f"/projects/{project['id']}/videos/upload",
+        params={"filename": "large.gif"},
+        content=b"0" * (1024 * 1024 + 1),
+        headers={"content-type": "image/gif"},
+    )
+
+    assert response.status_code == 413
+    assert "maximum size" in response.text
+
+
+def test_ffmpeg_timeout_is_reported(tmp_path, monkeypatch) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Timeout")
+    source = tmp_path / project.id / "input" / "clip.mp4"
+    source.write_bytes(b"not a real mp4")
+
+    def timeout_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+
+    monkeypatch.setattr("app.services.frame_extraction.subprocess.run", timeout_run)
+    service = FrameExtractionService(project_store, ffmpeg_path="ffmpeg", ffmpeg_timeout_seconds=1)
+
+    try:
+        service.extract_frames(project.id, source_video=str(source))
+    except FrameExtractionError as exc:
+        assert str(exc) == "ffmpeg frame extraction timed out."
+    else:
+        raise AssertionError("Expected timeout error")
 
 
 def _tiny_gif_bytes(frame_count: int) -> bytes:

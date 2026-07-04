@@ -1,6 +1,7 @@
 import json
 
 from fastapi.testclient import TestClient
+import pytest
 
 from app.main import app
 
@@ -57,6 +58,24 @@ def test_artifact_download_rejects_unknown_id(tmp_path, monkeypatch) -> None:
     response = client.get(f"/projects/{project['id']}/artifacts/not-real/download")
 
     assert response.status_code == 404
+
+
+def test_artifact_listing_skips_symlink_escape(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "Symlink"}).json()
+    project_dir = tmp_path / "data" / project["id"]
+    outside = tmp_path / "outside.ply"
+    outside.write_text(_tiny_ply(), encoding="utf-8")
+    link = project_dir / "reconstruction" / "linked.ply"
+    try:
+        link.symlink_to(outside)
+    except OSError:
+        pytest.skip("Symlink creation is not available in this Windows environment.")
+
+    artifacts = client.get(f"/projects/{project['id']}/artifacts").json()["artifacts"]
+
+    assert "reconstruction/linked.ply" not in {artifact["relative_path"] for artifact in artifacts}
 
 
 def _tiny_ply() -> str:

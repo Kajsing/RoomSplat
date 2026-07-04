@@ -49,3 +49,23 @@ Mitigation:
 - Implement job status/logging early.
 - Save intermediate state.
 - Preserve error output.
+
+## Medium risk: exposing the local API
+
+The v1 app has no authentication and is intended for localhost use.
+
+Mitigation:
+
+- Bind backend startup examples to `127.0.0.1`.
+- Document that CORS is not authentication.
+- Do not expose the backend to untrusted networks until an auth/security model is added.
+
+## Medium risk: untrusted media resource usage
+
+Uploaded media and extraction can consume memory, CPU, and disk.
+
+Mitigation:
+
+- Enforce a configurable upload size limit.
+- Enforce an ffmpeg timeout.
+- Keep frame extraction bounded with stride and max-frame options.

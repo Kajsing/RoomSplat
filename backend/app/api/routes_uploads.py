@@ -19,12 +19,13 @@ async def upload_video(
     request: Request,
     filename: str = Query(..., min_length=1),
 ) -> VideoImportResponse:
+    config = get_config()
     service = VideoImportService(get_project_store())
     try:
         return service.import_uploaded_video(
             project_id=project_id,
             filename=filename,
-            content=await request.body(),
+            content=await _read_limited_body(request, config.max_upload_bytes),
             content_type=request.headers.get("content-type"),
         )
     except VideoImportError as exc:
@@ -34,7 +35,11 @@ async def upload_video(
 @router.post("/frames/extract", response_model=FrameExtractionResponse)
 def extract_frames(project_id: str, request: FrameExtractionRequest) -> FrameExtractionResponse:
     config = get_config()
-    service = FrameExtractionService(ProjectStore(config.data_dir), ffmpeg_path=config.ffmpeg_path)
+    service = FrameExtractionService(
+        ProjectStore(config.data_dir),
+        ffmpeg_path=config.ffmpeg_path,
+        ffmpeg_timeout_seconds=config.ffmpeg_timeout_seconds,
+    )
     try:
         return service.extract_frames(
             project_id=project_id,
@@ -44,3 +49,22 @@ def extract_frames(project_id: str, request: FrameExtractionRequest) -> FrameExt
         )
     except FrameExtractionError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+async def _read_limited_body(request: Request, max_bytes: int) -> bytes:
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > max_bytes:
+                raise HTTPException(status_code=413, detail="Uploaded video exceeds the configured maximum size.")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Content-Length header is invalid.") from exc
+
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(status_code=413, detail="Uploaded video exceeds the configured maximum size.")
+        chunks.append(chunk)
+    return b"".join(chunks)

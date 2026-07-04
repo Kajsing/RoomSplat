@@ -36,7 +36,11 @@ class LocalWorker:
         raise ValueError(f"Unsupported job type: {job.job_type}")
 
     def _run_frame_extraction(self, job: JobResponse) -> dict[str, Any]:
-        service = FrameExtractionService(self.project_store, ffmpeg_path=self.config.ffmpeg_path)
+        service = FrameExtractionService(
+            self.project_store,
+            ffmpeg_path=self.config.ffmpeg_path,
+            ffmpeg_timeout_seconds=self.config.ffmpeg_timeout_seconds,
+        )
         result = service.extract_frames(
             project_id=job.project_id,
             source_video=job.params.get("source_video"),
@@ -48,7 +52,7 @@ class LocalWorker:
 
     def _run_reconstruction_spike(self, job: JobResponse) -> dict[str, Any]:
         project_dir = self.project_store.get_project_dir(job.project_id)
-        frames_dir = Path(job.params.get("frames_dir") or project_dir / "frames").resolve()
+        frames_dir = _resolve_inside_project(project_dir, job.params.get("frames_dir") or "frames")
         reconstruction_input = inspect_frames(frames_dir)
         report = build_report(reconstruction_input, project_dir)
         report_path = write_report(project_dir, report)
@@ -68,3 +72,15 @@ class WorkerPool:
 
 
 worker_pool = WorkerPool()
+
+
+def _resolve_inside_project(project_dir: Path, requested_path: Any) -> Path:
+    candidate = Path(str(requested_path))
+    if not candidate.is_absolute():
+        candidate = project_dir / candidate
+    resolved = candidate.resolve()
+    try:
+        resolved.relative_to(project_dir.resolve())
+    except ValueError as exc:
+        raise ValueError("Job path escaped the project directory.") from exc
+    return resolved

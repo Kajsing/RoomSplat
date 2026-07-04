@@ -23,7 +23,11 @@ npm --prefix frontend run build
 10. Create exports through `POST /projects/{project_id}/exports`.
 11. Verify `metadata/exports/<export-id>.json` records source artifact, format, generated time, artifact label, and `real`/`placeholder` status.
 12. Download the exported file through the artifact download URL.
+13. Confirm the backend is bound to `127.0.0.1` for local v1 use.
+14. Confirm generated data remains ignored by Git.
 
 ## Validation principle
 
 The app must not present placeholder reconstruction output as real reconstruction. Missing external reconstruction dependencies should produce clear, actionable messages.
+
+Security baseline checks should cover path containment for project IDs, uploads, frame extraction sources, job paths, artifact IDs, artifact listing/downloads, and export outputs.

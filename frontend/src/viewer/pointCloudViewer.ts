@@ -14,6 +14,8 @@ export type PointCloudView = {
   zoom: number
 }
 
+const MAX_PREVIEW_POINTS = 50000
+
 export function parseAsciiPly(source: string): PointCloud {
   const lines = source.split(/\r?\n/)
   const endHeaderIndex = lines.findIndex((line) => line.trim() === 'end_header')
@@ -22,6 +24,9 @@ export function parseAsciiPly(source: string): PointCloud {
   const vertexLine = lines.slice(0, endHeaderIndex).find((line) => line.startsWith('element vertex '))
   const vertexCount = vertexLine ? Number(vertexLine.split(/\s+/)[2]) : 0
   if (!Number.isFinite(vertexCount) || vertexCount <= 0) throw new Error('PLY has no vertices')
+  if (vertexCount > MAX_PREVIEW_POINTS) {
+    throw new Error(`PLY preview is limited to ${MAX_PREVIEW_POINTS.toLocaleString()} vertices. Download the artifact for full inspection.`)
+  }
 
   const points: Point[] = []
   for (const line of lines.slice(endHeaderIndex + 1, endHeaderIndex + 1 + vertexCount)) {

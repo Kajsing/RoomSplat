@@ -29,6 +29,7 @@ frames/
 exports/
 reconstruction/
 .logs/*.tmp
+.roomsplat-*.tmp
 *.log
 .DS_Store
 Thumbs.db

@@ -51,6 +51,7 @@ Non-responsibilities:
 - Implementing low-level 3DGS algorithms from scratch.
 - Cloud sync.
 - Public internet exposure.
+- Authentication for v1 local-only use.
 
 ### Pipeline
 
@@ -138,6 +139,8 @@ Current export behavior:
 - Missing dependencies produce actionable setup messages.
 - Invalid input files are rejected with clear errors.
 - Failed jobs keep logs.
+- Oversized uploads are rejected before import.
+- Long ffmpeg extraction runs time out with a frame extraction error.
 
 ## Configuration
 
@@ -149,6 +152,7 @@ Use environment variables and `.env.example` for:
 - Optional external tool paths.
 - Max upload size.
 - Frame extraction defaults.
+- ffmpeg timeout.
 
 ## Plugin architecture, later
 

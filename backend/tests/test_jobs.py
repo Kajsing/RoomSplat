@@ -83,6 +83,21 @@ def test_worker_runs_reconstruction_spike_job(tmp_path) -> None:
     assert (tmp_path / project.id / "metadata" / "reconstruction_spike.json").is_file()
 
 
+def test_worker_rejects_reconstruction_frames_dir_outside_project(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Spike path safety")
+    outside_frames = tmp_path / "outside"
+    _write_frames(outside_frames, count=4)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "reconstruction_spike", {"frames_dir": str(outside_frames)})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "failed"
+    assert completed.error == "Job path escaped the project directory."
+
+
 def test_jobs_api_creates_and_polls_job(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
     client = TestClient(app)

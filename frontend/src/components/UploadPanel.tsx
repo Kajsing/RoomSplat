@@ -39,7 +39,6 @@ export default function UploadPanel({ project, onJobChange }: UploadPanelProps) 
 
     try {
       const job = await createJob(project.id, 'frame_extraction', {
-        source_video: importedVideo.source_video,
         stride,
         max_frames: maxFrames ? Number(maxFrames) : undefined,
       })

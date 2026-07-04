@@ -2,12 +2,12 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented.
-Current milestone: Milestone 8 - v1 hardening and docs.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented.
+Current milestone: v1 baseline complete; next milestone should be selected by project owner.
 
 ## Latest completed milestone
 
-Milestone 7 - Export service.
+Milestone 8 - v1 hardening and security baseline.
 
 ## How to run
 
@@ -58,6 +58,9 @@ npm --prefix frontend run build
 - Full in-browser GLB mesh rendering is not implemented yet; GLB artifacts get a metadata preview and download link.
 - Placeholder exports are available for reconstruction spike debug reports only when explicitly requested; they are labeled as placeholders and are not real reconstruction output.
 - Windows-native GPU dependencies may be difficult.
+- v1 remains unauthenticated and should bind to `127.0.0.1`; do not expose the backend to untrusted networks.
+- API responses still include some absolute local paths for operator/debug transparency; keep this local-only or revise before shared/network use.
+- Browser PLY preview is intentionally limited for responsiveness; large artifacts should be downloaded for full inspection.
 
 ## Commands run
 
@@ -82,10 +85,27 @@ npm --prefix frontend run build
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 33 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 7
 - `git diff --check` - passed with line-ending warnings only
+- Codex Security config preflight for `security_scan` - ready after declaring native v1 multi-agent runtime from tool surface
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 37 tests
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 8
 
 ## Next step
 
-Start Milestone 8: v1 hardening and docs, including new-user Windows setup review, `.env.example`, capture tips, and final validation cleanup.
+Select the next milestone. Good candidates: real reconstruction dependency setup, full Three.js GLB rendering, or a minimal end-to-end sample project pack.
+
+## Milestone 8 notes
+
+- Expanded README into a Windows-oriented setup, configure, run, workflow, test, capture, and output guide.
+- Updated `.env.example` with documented data directory, ffmpeg path, max upload size, ffmpeg timeout, localhost binding, and Vite API URL settings.
+- Added `docs/security-baseline.md`.
+- Added upload size enforcement with `ROOMSPLAT_MAX_UPLOAD_MB`.
+- Added ffmpeg timeout handling with `ROOMSPLAT_FFMPEG_TIMEOUT_SECONDS`.
+- Added reconstruction job path containment for `frames_dir`.
+- Added artifact listing containment so escaped symlinks are not listed as artifacts.
+- Added frontend API URL support through `VITE_ROOMSPLAT_API_URL` / `VITE_BACKEND_URL`.
+- Added browser PLY preview size limit.
+- Updated capture, risk, validation, architecture, and project-format docs for v1 hardening.
+- Security baseline found no critical/high issues after the Milestone 8 fixes; residual risks remain around local-only/no-auth use, media resource usage, absolute path disclosure, and future adapter safety.
 
 ## Milestone 7 notes
 
