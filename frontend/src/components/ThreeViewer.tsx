@@ -376,12 +376,19 @@ async function loadArtifact(artifact: Artifact, sourceUrl: string, pointSize: nu
   if (artifact.artifact_type === 'splat_ply') {
     try {
       return await loadSplat(sourceUrl)
-    } catch (reason) {
-      const fallback = await loadPlyPoints(sourceUrl, pointSize, colorMode)
+    } catch (splatReason) {
+      let fallback: LoadedArtifact
+      try {
+        fallback = await loadPlyPoints(sourceUrl, pointSize, colorMode)
+      } catch (fallbackReason) {
+        const splatMessage = splatReason instanceof Error ? splatReason.message : 'unknown splat loader reason'
+        const fallbackMessage = fallbackReason instanceof Error ? fallbackReason.message : 'unknown point fallback reason'
+        throw new Error(`GaussianSplats3D could not display this PLY (${splatMessage}); point-cloud fallback also failed (${fallbackMessage}).`)
+      }
       return {
         ...fallback,
         status: 'Splat loader could not read this file; displayed as point cloud fallback.',
-        warning: `GaussianSplats3D rejected this PLY (${reason instanceof Error ? reason.message : 'unknown reason'}). Displayed as a point cloud fallback; the file may be conventional PLY or missing Gaussian splat attributes.`,
+        warning: `GaussianSplats3D rejected this PLY (${splatReason instanceof Error ? splatReason.message : 'unknown reason'}). Displayed as a point cloud fallback; the file may be conventional PLY or missing Gaussian splat attributes.`,
       }
     }
   }
@@ -402,12 +409,21 @@ async function loadArtifact(artifact: Artifact, sourceUrl: string, pointSize: nu
 async function loadSplat(sourceUrl: string): Promise<LoadedArtifact> {
   const GaussianSplats3D = await import('@mkkellogg/gaussian-splats-3d')
   const splatObject = new GaussianSplats3D.DropInViewer({ gpuAcceleratedSort: false })
-  await splatObject.addSplatScene(sourceUrl, {
-    format: GaussianSplats3D.SceneFormat.Ply,
-    progressiveLoad: false,
-    showLoadingUI: false,
-    splatAlphaRemovalThreshold: 5,
-  })
+  try {
+    await withTimeout(
+      splatObject.addSplatScene(sourceUrl, {
+        format: GaussianSplats3D.SceneFormat.Ply,
+        progressiveLoad: true,
+        showLoadingUI: false,
+        splatAlphaRemovalThreshold: 5,
+      }),
+      15_000,
+      'Gaussian splat loader timed out.',
+    )
+  } catch (reason) {
+    splatObject.dispose?.()
+    throw reason
+  }
   return {
     object: splatObject as THREE.Object3D,
     splatObject,
@@ -417,12 +433,17 @@ async function loadSplat(sourceUrl: string): Promise<LoadedArtifact> {
 }
 
 async function loadPlyPoints(sourceUrl: string, pointSize: number, colorMode: ColorMode): Promise<LoadedArtifact> {
-  const geometry = await new PLYLoader().loadAsync(sourceUrl)
+  const loader = new PLYLoader()
+  loader.setCustomPropertyNameMapping({
+    gaussianDcColor: ['f_dc_0', 'f_dc_1', 'f_dc_2'],
+  })
+  const geometry = await loader.loadAsync(sourceUrl)
   geometry.computeBoundingBox()
   const positions = geometry.getAttribute('position')
   if (!positions || positions.count === 0) {
     throw new Error('PLY artifact has no vertex positions to display.')
   }
+  applyGaussianDcColors(geometry)
   applyColorMode(geometry, colorMode)
   const hasVertexColor = colorMode !== 'solid' && Boolean(geometry.getAttribute('color'))
   const material = new THREE.PointsMaterial({
@@ -456,6 +477,39 @@ async function loadGlb(sourceUrl: string): Promise<LoadedArtifact> {
     status: meshCount > 0 ? 'GLB scene loaded.' : 'GLB loaded, but it did not contain visible mesh nodes.',
     warning: meshCount > 0 ? undefined : 'This GLB has no visible mesh nodes.',
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs)
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId)
+        resolve(value)
+      },
+      (reason) => {
+        window.clearTimeout(timeoutId)
+        reject(reason)
+      },
+    )
+  })
+}
+
+function applyGaussianDcColors(geometry: THREE.BufferGeometry) {
+  if (geometry.getAttribute('color')) return
+  const dc = geometry.getAttribute('gaussianDcColor')
+  if (!dc) return
+  const colors = new Float32Array(dc.count * 3)
+  for (let index = 0; index < dc.count; index += 1) {
+    colors[index * 3] = gaussianDcToSrgb(dc.getX(index))
+    colors[index * 3 + 1] = gaussianDcToSrgb(dc.getY(index))
+    colors[index * 3 + 2] = gaussianDcToSrgb(dc.getZ(index))
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+}
+
+function gaussianDcToSrgb(value: number) {
+  return THREE.MathUtils.clamp(value * 0.28209479177387814 + 0.5, 0, 1)
 }
 
 function applyColorMode(geometry: THREE.BufferGeometry, colorMode: ColorMode) {

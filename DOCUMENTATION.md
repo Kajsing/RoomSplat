@@ -66,6 +66,8 @@ npm --prefix frontend run build
 - v1 remains unauthenticated and should bind to `127.0.0.1`; do not expose the backend to untrusted networks.
 - API responses still include some absolute local paths for operator/debug transparency; keep this local-only or revise before shared/network use.
 - Frame Room Cloud generation is capped at 50,000 points for browser responsiveness; large real artifacts should still be downloaded for full inspection when needed.
+- Postshot Gaussian-style PLY samples with `f_dc_*` color coefficients can be shown as point-cloud fallback, but GaussianSplats3D currently times out on the local cactus Postshot sample before rendering it as real splats.
+- SuperSplat compressed PLY samples use packed chunk/sh fields and no ordinary vertex `x/y/z` positions, so they need explicit compressed splat support; current point-cloud fallback cannot display them.
 
 ## Commands run
 
@@ -159,6 +161,13 @@ npm --prefix frontend run build
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Splat-first viewer with chunk-size warning
 - `pnpm dlx npm@latest --prefix frontend audit --audit-level=moderate` - passed, 0 vulnerabilities
 - `git diff --check` - passed with line-ending warnings only
+- Inspected `C:\project\3DGS_PLY_sample_data` and copied selected CC0 PLY samples into ignored local project data for browser viewer testing.
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after 3DGS sample viewer fallback changes with chunk-size warning.
+- Browser smoke at `http://127.0.0.1:5173` for local 3DGS samples - Postshot cactus PLY displayed as point-cloud fallback after splat timeout; SuperSplat compressed PLY showed clear unsupported-format error.
+- Pixel check for `data/manual-verification/sample-cactus-postshot-fallback-large-view.png` - nonblank screenshot crop, 22,903 unique colors.
+- `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 79 tests after 3DGS sample viewer fallback changes.
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 5 frontend helper tests after 3DGS sample viewer fallback changes.
+- `git diff --check` - passed with line-ending warnings only after 3DGS sample viewer fallback changes.
 
 ## Next step
 
@@ -294,6 +303,27 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
 - Manual browser smoke used the Objectron cup project and generated `data/manual-verification/viewer-smoke.png` as an ignored screenshot artifact.
 - Browser pixel check found the Three.js canvas nonblank with 3,363 unique colors in the canvas crop.
 - Manual browser controls tested: grid/axes toggles, color mode, point size, reset camera, fit, artifact switching, and orbit/zoom pointer interaction.
+
+## 3DGS PLY sample viewer test notes
+
+- Source sample folder: `C:\project\3DGS_PLY_sample_data`.
+- Sample license/readme: CC0, with requested credit URL `https://www.steam-studio.jp`.
+- Relevant formats found:
+  - Postshot uncompressed PLY: Gaussian-style PLY with `x/y/z`, `f_dc_0..2`, spherical harmonic rest coefficients, opacity, scale, and rotation fields.
+  - SuperSplat compressed PLY: packed chunk/sh format without normal point-cloud vertex positions.
+  - RealityCapture OBJ mesh exports: useful later if we add OBJ import or convert to GLB, but not directly supported by the current browser viewer.
+- Copied ignored test artifacts into local project `023ad4c91b794a0bbe6ec20f202596d7`:
+  - `reconstruction/cactus-splat.ply` from Postshot uncompressed PLY, 31.4 MB, 139,410 points/splats.
+  - `reconstruction/cactus-supersplat-compressed.ply` from SuperSplat compressed PLY, 8.1 MB.
+- Browser verification loaded `cactus-splat.ply` in the Three.js viewer after GaussianSplats3D timed out and the point-cloud fallback took over.
+- Browser large view showed a recognizable cactus-like object from the Postshot sample using mapped `f_dc_0..2` colors.
+- Pixel check for `data/manual-verification/sample-cactus-postshot-fallback-large-view.png` found a nonblank crop with 22,903 unique colors.
+- Browser verification for `cactus-supersplat-compressed.ply` produced a clear unsupported-format message: GaussianSplats3D timed out and point-cloud fallback failed because the PLY has no vertex positions.
+- Viewer changes from this test:
+  - Added a 15 second timeout around GaussianSplats3D loading so unsupported/slow splat files do not leave the UI at `Loading artifact...`.
+  - Added Postshot `f_dc_0..2` mapping in PLY point fallback so Gaussian-style PLYs retain approximate color when shown as points.
+  - Preserved both failure causes when splat loading and point fallback both fail.
+- Current conclusion: the browser viewer can show a recognizable object from real local 3DGS sample data today, but true splat rendering for Postshot/SuperSplat variants remains a loader-compatibility milestone.
 
 ## Milestone 8 notes
 
