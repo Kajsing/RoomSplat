@@ -17,3 +17,59 @@ python pipeline/scripts/extract_frames.py --video path/to/tiny.gif --output data
 ```
 
 Frames are written as `frame_000001.png`, `frame_000002.png`, and so on. Metadata is printed as JSON by the CLI and written under project `metadata/` by the backend API.
+
+## Reconstruction spike
+
+Milestone 4 is adapter-first. The app does not run reconstruction training unless local dependencies are present and explicitly wired through an adapter.
+
+The selected interim path is:
+
+```text
+frames -> COLMAP/pycolmap poses -> Nerfstudio Splatfacto -> reconstruction/splat.ply
+```
+
+Run the spike against a project:
+
+```bash
+python pipeline/scripts/run_reconstruction_spike.py --project data/<project-id> --json --write-report
+```
+
+Run it against any frames directory:
+
+```bash
+python pipeline/scripts/run_reconstruction_spike.py --frames-dir data/<project-id>/frames
+```
+
+The script:
+
+- validates that extracted frames exist,
+- reports frame count and resolution,
+- checks local availability of `colmap`, `pycolmap`, `ns-process-data`, `ns-train`, `nerfstudio`, `torch`, `gsplat`, and `open3d`,
+- records expected artifact contracts,
+- writes `metadata/reconstruction_spike.json` when `--project --write-report` is used,
+- prints stop-condition guidance instead of producing fake reconstruction output.
+
+## Adapter contract
+
+Adapters expose dependency checks, readiness status, expected artifact contracts, and next setup steps.
+
+Current adapters:
+
+- `colmap`: camera poses and sparse conventional point cloud.
+- `nerfstudio-splatfacto`: interim full splat-training path.
+- `gsplat`: lower-level future custom/fast/generative splat boundary.
+- `open3d-debug`: optional point-cloud inspection tooling.
+
+Output labels must stay explicit:
+
+- `camera_poses`: camera intrinsics/extrinsics.
+- `point_cloud_ply`: conventional point cloud, not splats.
+- `splat_ply`: Gaussian splat data.
+
+Primary references:
+
+- https://docs.nerf.studio/quickstart/installation.html
+- https://docs.nerf.studio/nerfology/methods/splat.html
+- https://colmap.github.io/pycolmap/index.html
+- https://github.com/nerfstudio-project/gsplat/blob/main/docs/INSTALL_WIN.md
+- https://www.open3d.org/docs/release/getting_started.html

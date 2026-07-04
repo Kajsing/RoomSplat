@@ -2,12 +2,12 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented.
-Current milestone: Milestone 4 - Reconstruction spike.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented.
+Current milestone: Milestone 5 - Job system for long-running reconstruction.
 
 ## Latest completed milestone
 
-Milestone 3 - Video import and frame extraction.
+Milestone 4 - Adapter-first reconstruction spike.
 
 ## How to run
 
@@ -50,7 +50,9 @@ npm --prefix frontend run build
 - Frontend validation used bundled `pnpm` because `npm` is not available on PATH in this shell.
 - Frame extraction tests use deterministic animated GIF fixtures; general video formats require `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - Frame extraction is synchronous until the Milestone 5 job system exists.
-- No reconstruction pipeline selected yet.
+- No real reconstruction training is integrated yet; Milestone 4 selects an interim path and reports dependency readiness.
+- Local reconstruction dependencies are not installed in the current shell: `pycolmap`, `nerfstudio`, `gsplat`, `torch`, `open3d`, `colmap`, `ns-process-data`, and `ns-train` are unavailable.
+- Windows-native Nerfstudio/gsplat setup may be fragile due to CUDA, PyTorch, and Visual Studio Build Tools requirements.
 - `.ply` may mean point cloud or splat data depending on pipeline stage; UI must label this.
 - `.glb` export path is uncertain until representation is known.
 - Windows-native GPU dependencies may be difficult.
@@ -67,10 +69,30 @@ npm --prefix frontend run build
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 13 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 3
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 17 tests
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe pipeline\scripts\run_reconstruction_spike.py --help` - passed
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 4
 
 ## Next step
 
-Start Milestone 4: run the reconstruction spike and select/document the first practical local Windows-native Gaussian Splatting / NeRF path. Do not claim placeholder outputs are real reconstruction.
+Start Milestone 5: add local background jobs for extraction and reconstruction orchestration. The job system should call adapter names/contracts rather than hard-coding Nerfstudio commands into the API.
+
+## Milestone 4 notes
+
+- Added a reconstruction adapter contract under `pipeline/adapters/`.
+- Added adapter assessments for COLMAP/pycolmap, Nerfstudio Splatfacto, gsplat, and Open3D debug tooling.
+- Added `pipeline/scripts/run_reconstruction_spike.py`.
+- The selected interim path is `frames -> COLMAP/pycolmap poses -> Nerfstudio Splatfacto -> splat.ply`.
+- The selected path is intentionally replaceable by a faster learned/generative splat adapter later.
+- The spike validates project frames, reports dependency readiness, declares output contracts, and can write `metadata/reconstruction_spike.json`.
+- No fake reconstruction artifacts are produced.
+- Primary references checked:
+  - https://docs.nerf.studio/quickstart/installation.html
+  - https://docs.nerf.studio/nerfology/methods/splat.html
+  - https://colmap.github.io/pycolmap/index.html
+  - https://colmap.github.io/
+  - https://github.com/nerfstudio-project/gsplat/blob/main/docs/INSTALL_WIN.md
+  - https://www.open3d.org/docs/release/getting_started.html
 
 ## Milestone 3 notes
 

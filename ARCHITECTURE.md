@@ -58,9 +58,40 @@ Responsibilities:
 
 - Inspect videos.
 - Extract frames.
-- Run or adapt reconstruction tools.
+- Run or adapt reconstruction tools behind a small adapter contract.
 - Export artifacts.
 - Report dependency and processing errors clearly.
+
+### Reconstruction adapter boundary
+
+The reconstruction layer should call adapters by capability and artifact contract, not by hard-coded tool internals.
+
+Current adapter contract:
+
+```text
+ReconstructionInput
+  frames_dir
+  frame_count
+  width
+  height
+
+ReconstructionAdapter
+  assess(input) -> AdapterAssessment
+
+AdapterAssessment
+  status
+  dependency checks
+  expected artifact contracts
+  next setup steps
+```
+
+The interim path is:
+
+```text
+frames -> COLMAP/pycolmap poses -> Nerfstudio Splatfacto -> splat.ply
+```
+
+Future learned or generative splat methods should fit behind the same boundary by consuming frames and/or poses and emitting the same `splat_ply` artifact contract.
 
 ### Project storage
 
