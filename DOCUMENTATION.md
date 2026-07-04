@@ -2,12 +2,12 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented.
-Current milestone: Milestone 6 - Viewer integration.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented.
+Current milestone: Milestone 7 - Export service.
 
 ## Latest completed milestone
 
-Milestone 5 - Job system for long-running reconstruction.
+Milestone 6 - Viewer integration.
 
 ## How to run
 
@@ -55,6 +55,7 @@ npm --prefix frontend run build
 - Windows-native Nerfstudio/gsplat setup may be fragile due to CUDA, PyTorch, and Visual Studio Build Tools requirements.
 - `.ply` may mean point cloud or splat data depending on pipeline stage; UI must label this.
 - `.glb` export path is uncertain until representation is known.
+- Full in-browser GLB mesh rendering is not implemented yet; GLB artifacts get a metadata preview and download link.
 - Windows-native GPU dependencies may be difficult.
 
 ## Commands run
@@ -74,10 +75,23 @@ npm --prefix frontend run build
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 4
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 23 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 5
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 26 tests
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 6
 
 ## Next step
 
-Start Milestone 6: integrate the browser viewer for result artifacts. Since real splats are not produced yet, viewer work should start with clearly labeled placeholder/debug artifacts or existing `.ply`/`.glb` contracts and avoid pretending spike reports are reconstructions.
+Start Milestone 7: implement export service/download links for `.ply` and `.glb` outputs, preserving explicit artifact labels and metadata.
+
+## Milestone 6 notes
+
+- Added artifact discovery under `GET /projects/{project_id}/artifacts`.
+- Added artifact serving under `GET /projects/{project_id}/artifacts/{artifact_id}/download`.
+- Artifact labels include `point_cloud_ply`, `splat_ply`, `mesh_glb`, `debug_report`, and `unsupported`.
+- Frontend viewer can select listed artifacts.
+- ASCII PLY artifacts render in a canvas preview with rotate/zoom controls.
+- Splat PLY uses the same debug point preview but keeps an explicit splat label.
+- GLB artifacts get a metadata preview and download link; full Three.js GLB mesh rendering remains future work.
+- `reconstruction_spike.json` is shown as a debug report, not as a reconstructed artifact.
 
 ## Milestone 5 notes
 

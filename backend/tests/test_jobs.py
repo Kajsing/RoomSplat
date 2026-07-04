@@ -131,6 +131,9 @@ def _wait_for_job(client: TestClient, project_id: str, job_id: str) -> dict:
     deadline = time.time() + 5
     while time.time() < deadline:
         response = client.get(f"/projects/{project_id}/jobs/{job_id}")
+        if response.status_code == 404:
+            time.sleep(0.05)
+            continue
         assert response.status_code == 200
         job = response.json()
         if job["status"] in {"succeeded", "failed"}:

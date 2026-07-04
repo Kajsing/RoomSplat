@@ -97,6 +97,17 @@ Future learned or generative splat methods should fit behind the same boundary b
 
 Each project gets its own folder. The backend is the only layer that should write to project folders directly.
 
+### Artifact viewer boundary
+
+The backend discovers result artifacts and labels them before the frontend displays them. The frontend must not infer that a file is a real reconstruction merely because it exists.
+
+Current viewer behavior:
+
+- `point_cloud_ply`: ASCII PLY canvas preview with rotate/zoom controls.
+- `splat_ply`: debug point preview with an explicit splat label.
+- `mesh_glb`: GLB metadata preview and download; full mesh rendering is future Three.js work.
+- `debug_report`: JSON/debug text, not a 3D artifact.
+
 ## Data flow
 
 1. User creates project.
@@ -106,8 +117,9 @@ Each project gets its own folder. The backend is the only layer that should writ
 5. Local worker runs frame extraction, creates images in `frames/`, and writes metadata.
 6. Reconstruction-spike job consumes frames and writes dependency/output-contract guidance.
 7. Future reconstruction job consumes frames and produces artifacts in `reconstruction/`.
-8. Export service creates user-facing files in `exports/`.
-9. Frontend displays artifacts through browser viewer or download links.
+8. Artifact service labels reconstruction/export/debug files.
+9. Export service creates user-facing files in `exports/`.
+10. Frontend displays artifacts through browser viewer states or download links.
 
 ## Error handling
 

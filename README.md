@@ -11,11 +11,13 @@ The first version focuses on the local engine: import a video, extract frames, r
 - Video upload into project `input/` folders.
 - Deterministic frame extraction into project `frames/` folders.
 - Local background jobs for frame extraction and reconstruction-spike orchestration.
-- Vite + React frontend displaying backend health, create/list projects, video upload, and job status.
+- Artifact discovery/download APIs with explicit labels for point clouds, splats, GLB, and debug reports.
+- Vite + React frontend displaying backend health, create/list projects, video upload, job status, and artifact viewer states.
 
 ## What it does not do yet
 
 - No real Gaussian Splatting / NeRF training is integrated yet; the current reconstruction path is a dependency/readiness spike.
+- GLB artifacts currently get a metadata preview/download state; full in-browser mesh rendering is still future work.
 - General MP4/MOV extraction requires `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - No live phone/webcam streaming yet.
 - No native Android app.

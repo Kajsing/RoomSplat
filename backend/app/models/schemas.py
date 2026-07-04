@@ -55,6 +55,7 @@ class FrameExtractionResponse(BaseModel):
 
 JobType = Literal["frame_extraction", "reconstruction_spike"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
+ArtifactType = Literal["point_cloud_ply", "splat_ply", "mesh_glb", "debug_report", "unsupported"]
 
 
 class JobCreateRequest(BaseModel):
@@ -79,3 +80,20 @@ class JobResponse(BaseModel):
 
 class JobListResponse(BaseModel):
     jobs: list[JobResponse]
+
+
+class ArtifactResponse(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    relative_path: str
+    artifact_type: ArtifactType
+    viewer_supported: bool
+    size_bytes: int
+    modified_at: str
+    download_url: str
+    description: str
+
+
+class ArtifactListResponse(BaseModel):
+    artifacts: list[ArtifactResponse]

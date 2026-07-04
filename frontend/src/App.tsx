@@ -4,6 +4,7 @@ import { fetchHealth, Job, Project } from './api'
 import JobStatusPanel from './components/JobStatusPanel'
 import ProjectList from './components/ProjectList'
 import UploadPanel from './components/UploadPanel'
+import ViewerPanel from './components/ViewerPanel'
 
 export default function App() {
   const [message, setMessage] = useState('Loading backend health...')
@@ -27,6 +28,7 @@ export default function App() {
       />
       <UploadPanel project={selectedProject} onJobChange={setActiveJob} />
       <JobStatusPanel project={selectedProject} activeJob={activeJob} onJobChange={setActiveJob} />
+      <ViewerPanel project={selectedProject} activeJob={activeJob} />
     </main>
   )
 }

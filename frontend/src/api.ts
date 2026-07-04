@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = 'http://127.0.0.1:8000'
+export const DEFAULT_BASE_URL = 'http://127.0.0.1:8000'
 
 export type HealthResponse = {
   status: string
@@ -60,12 +60,31 @@ export type Job = {
   log_path: string
 }
 
+export type ArtifactType = 'point_cloud_ply' | 'splat_ply' | 'mesh_glb' | 'debug_report' | 'unsupported'
+
+export type Artifact = {
+  id: string
+  project_id: string
+  name: string
+  relative_path: string
+  artifact_type: ArtifactType
+  viewer_supported: boolean
+  size_bytes: number
+  modified_at: string
+  download_url: string
+  description: string
+}
+
 type ProjectListResponse = {
   projects: Project[]
 }
 
 type JobListResponse = {
   jobs: Job[]
+}
+
+type ArtifactListResponse = {
+  artifacts: Artifact[]
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -126,6 +145,15 @@ export async function getJob(projectId: string, jobId: string, baseUrl = DEFAULT
 export async function listJobs(projectId: string, baseUrl = DEFAULT_BASE_URL) {
   const response = await requestJson<JobListResponse>(`${baseUrl}/projects/${projectId}/jobs`)
   return response.jobs
+}
+
+export async function listArtifacts(projectId: string, baseUrl = DEFAULT_BASE_URL) {
+  const response = await requestJson<ArtifactListResponse>(`${baseUrl}/projects/${projectId}/artifacts`)
+  return response.artifacts
+}
+
+export function artifactUrl(artifact: Artifact, baseUrl = DEFAULT_BASE_URL) {
+  return `${baseUrl}${artifact.download_url}`
 }
 
 function readErrorMessage(text: string) {
