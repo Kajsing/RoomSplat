@@ -3,8 +3,8 @@
 ## Current status
 
 Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented.
-Current milestone: Real Reconstruction Preview v1 in progress.
-Next planned milestone: Real Gaussian Splatting reconstruction after sparse point-cloud preview is validated.
+Current milestone: Real Reconstruction Preview v1 complete and pushed.
+Next planned milestone: Reconstruction Quality + Camera Path v1.
 
 ## Latest completed milestone
 
@@ -131,7 +131,15 @@ npm --prefix frontend run build
 
 ## Next step
 
-Recommended next milestone: install or configure COLMAP locally, then browser-smoke the real `reconstruct_point_cloud` flow against the Objectron test project.
+Recommended next milestone: Reconstruction Quality + Camera Path v1. See `docs/next-goals/reconstruction-quality-camera-path-v1.md`.
+
+## Reconstruction Quality + Camera Path v1 plan
+
+- Saved next-goal plan at `docs/next-goals/reconstruction-quality-camera-path-v1.md`.
+- Direction: parse COLMAP camera/image text outputs, store camera/path metadata, and show camera positions/frustums plus trajectory in the Three.js viewer.
+- Add viewer toggles for points, cameras, path, grid, axes, and keep debug frame planes separate.
+- Improve artifact ordering and placeholder/debug labeling.
+- Validate against the local Objectron cup, chair, and shoe samples.
 
 ## Real Reconstruction Preview v1 plan
 
