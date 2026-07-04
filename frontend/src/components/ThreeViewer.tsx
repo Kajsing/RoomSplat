@@ -5,7 +5,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { PLYLoader } from 'three/addons/loaders/PLYLoader.js'
 import type { Artifact, DebugFrameCloudMetadata, ReconstructionMetadata } from '../api'
+import { gaussianPointStyleFromAttributes } from '../viewer/gaussianFallback'
 import { VIEWER_ORIENTATION_OPTIONS, formatViewerOrientationMode } from '../viewer/orientation'
+import { robustPointBoundsFromFlatPositions } from '../viewer/pointBounds'
 import type { ViewerOrientationMode } from '../viewer/orientation'
 import { formatBytes, formatViewerArtifactType } from '../viewer/viewerHelpers'
 
@@ -154,8 +156,8 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
     const root = artifactRootRef.current
     if (!root) return
     applyOrientation(root, orientationMode)
-    fitCameraToObject(root, cameraRef.current, controlsRef.current)
-  }, [orientationMode])
+    fitCameraToObject(root, cameraRef.current, controlsRef.current, isPointLayerArtifact(artifact.artifact_type) ? 'robust' : 'full')
+  }, [artifact.artifact_type, orientationMode])
 
   useEffect(() => {
     const root = artifactRootRef.current
@@ -189,7 +191,7 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
         }
         if (result.splatObject) splatObjectsRef.current = [result.splatObject]
         applyOrientation(root, orientationMode)
-        fitCameraToObject(root, cameraRef.current, controlsRef.current)
+        fitCameraToObject(root, cameraRef.current, controlsRef.current, isPointLayerArtifact(artifact.artifact_type) ? 'robust' : 'full')
         setStatus(result.status)
         setWarning(result.warning ?? null)
         setViewerStats({
@@ -239,6 +241,11 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
     fitCameraToObject(root ?? undefined, cameraRef.current, controlsRef.current)
   }
 
+  function handleFocusArtifact() {
+    const root = artifactRootRef.current
+    fitCameraToObject(root ?? undefined, cameraRef.current, controlsRef.current, 'robust')
+  }
+
   function handleCameraPreset(preset: CameraPreset) {
     const root = artifactRootRef.current
     setCameraPreset(preset, root ?? undefined, cameraRef.current, controlsRef.current)
@@ -266,6 +273,11 @@ export default function ThreeViewer({ artifact, debugFrameCloudMetadata, reconst
         <button onClick={handleFitToArtifact} style={buttonStyle} type="button" title="Fit camera to artifact">
           Fit
         </button>
+        {isPointLayerArtifact(artifact.artifact_type) ? (
+          <button onClick={handleFocusArtifact} style={buttonStyle} type="button" title="Focus central point cluster">
+            Focus
+          </button>
+        ) : null}
         <button onClick={() => handleCameraPreset('default')} style={buttonStyle} type="button" title="Default orbit camera">
           Default
         </button>
@@ -409,7 +421,7 @@ async function loadArtifact(artifact: Artifact, sourceUrl: string, pointSize: nu
       }
       return {
         ...fallback,
-        status: 'Splat loader could not read this file; displayed as point cloud fallback.',
+        status: `Splat loader could not read this file; ${fallback.status}`,
         warning: `GaussianSplats3D rejected this PLY (${splatReason instanceof Error ? splatReason.message : 'unknown reason'}). Displayed as a point cloud fallback; the file may be conventional PLY or missing Gaussian splat attributes.`,
       }
     }
@@ -458,6 +470,8 @@ async function loadPlyPoints(sourceUrl: string, pointSize: number, colorMode: Co
   const loader = new PLYLoader()
   loader.setCustomPropertyNameMapping({
     gaussianDcColor: ['f_dc_0', 'f_dc_1', 'f_dc_2'],
+    gaussianOpacity: ['opacity'],
+    gaussianScale: ['scale_0', 'scale_1', 'scale_2'],
   })
   const geometry = await loader.loadAsync(sourceUrl)
   geometry.computeBoundingBox()
@@ -468,18 +482,70 @@ async function loadPlyPoints(sourceUrl: string, pointSize: number, colorMode: Co
   applyGaussianDcColors(geometry)
   applyColorMode(geometry, colorMode)
   const hasVertexColor = colorMode !== 'solid' && Boolean(geometry.getAttribute('color'))
-  const material = new THREE.PointsMaterial({
-    color: colorMode === 'solid' ? 0x0969da : 0xffffff,
-    size: pointSize,
-    sizeAttenuation: true,
-    vertexColors: hasVertexColor,
-  })
+  const gaussianMaterial = createGaussianPointMaterial(geometry, pointSize, hasVertexColor)
+  const material =
+    gaussianMaterial ??
+    new THREE.PointsMaterial({
+      color: colorMode === 'solid' ? 0x0969da : 0xffffff,
+      size: pointSize,
+      sizeAttenuation: true,
+      vertexColors: hasVertexColor,
+    })
   const object = new THREE.Points(geometry, material)
   return {
     object,
     stats: { pointCount: positions.count },
-    status: `Point cloud loaded with ${positions.count} points.`,
+    status: gaussianMaterial
+      ? `Gaussian PLY fallback loaded with ${positions.count} scaled point sprites.`
+      : `Point cloud loaded with ${positions.count} points.`,
   }
+}
+
+function createGaussianPointMaterial(geometry: THREE.BufferGeometry, pointSize: number, hasVertexColor: boolean) {
+  if (!hasVertexColor) return null
+  const positions = geometry.getAttribute('position')
+  const scales = geometry.getAttribute('gaussianScale')
+  const opacities = geometry.getAttribute('gaussianOpacity')
+  if (!positions || !scales || !opacities) return null
+  const style = gaussianPointStyleFromAttributes(scales.array, opacities.array, positions.count, scales.itemSize)
+  if (!style) return null
+  geometry.setAttribute('splatPointSize', new THREE.BufferAttribute(style.size, 1))
+  geometry.setAttribute('splatAlpha', new THREE.BufferAttribute(style.alpha, 1))
+  return new THREE.ShaderMaterial({
+    depthWrite: false,
+    transparent: true,
+    vertexColors: true,
+    uniforms: {
+      basePointSizePx: { value: Math.max(1.25, Math.min(10, pointSize * 70)) },
+    },
+    vertexShader: `
+      uniform float basePointSizePx;
+      attribute float splatPointSize;
+      attribute float splatAlpha;
+      varying vec3 vColor;
+      varying float vAlpha;
+
+      void main() {
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = basePointSizePx * splatPointSize;
+        vColor = color;
+        vAlpha = splatAlpha;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      varying float vAlpha;
+
+      void main() {
+        vec2 centeredCoord = gl_PointCoord - vec2(0.5);
+        float distanceFromCenter = length(centeredCoord);
+        float softCircle = smoothstep(0.5, 0.18, distanceFromCenter);
+        if (vAlpha * softCircle <= 0.02) discard;
+        gl_FragColor = vec4(vColor, vAlpha * softCircle);
+      }
+    `,
+  })
 }
 
 async function loadGlb(sourceUrl: string): Promise<LoadedArtifact> {
@@ -572,9 +638,16 @@ function applyOrientation(object: THREE.Object3D, mode: ViewerOrientationMode) {
   object.updateMatrixWorld(true)
 }
 
-function fitCameraToObject(object: THREE.Object3D | undefined, camera: THREE.PerspectiveCamera | null, controls: OrbitControls | null) {
+type FitMode = 'full' | 'robust'
+
+function fitCameraToObject(
+  object: THREE.Object3D | undefined,
+  camera: THREE.PerspectiveCamera | null,
+  controls: OrbitControls | null,
+  mode: FitMode = 'full',
+) {
   if (!object || !camera || !controls) return
-  const box = visibleGeometryBox(object)
+  const box = visibleGeometryBox(object, mode)
   if (box.isEmpty()) return
   const center = box.getCenter(new THREE.Vector3())
   const size = box.getSize(new THREE.Vector3())
@@ -595,7 +668,7 @@ function setCameraPreset(
   controls: OrbitControls | null,
 ) {
   if (!camera || !controls) return
-  const box = object ? visibleGeometryBox(object) : new THREE.Box3()
+  const box = object ? visibleGeometryBox(object, 'robust') : new THREE.Box3()
   const center = box.isEmpty() ? new THREE.Vector3(0, 0, 0) : box.getCenter(new THREE.Vector3())
   const size = box.isEmpty() ? new THREE.Vector3(2, 2, 2) : box.getSize(new THREE.Vector3())
   const distance = Math.max(size.x, size.y, size.z, 1) * 1.8
@@ -611,7 +684,7 @@ function setCameraPreset(
   controls.update()
 }
 
-function visibleGeometryBox(object: THREE.Object3D) {
+function visibleGeometryBox(object: THREE.Object3D, mode: FitMode = 'full') {
   const box = new THREE.Box3()
   object.updateWorldMatrix(true, true)
   object.traverse((child) => {
@@ -619,13 +692,28 @@ function visibleGeometryBox(object: THREE.Object3D) {
     const geometry = (child as THREE.Object3D & { geometry?: THREE.BufferGeometry }).geometry
     const position = geometry?.getAttribute('position')
     if (!geometry || !position) return
-    if (!geometry.boundingBox) geometry.computeBoundingBox()
-    const childBox = geometry.boundingBox?.clone()
+    const childBox = child instanceof THREE.Points && mode === 'robust' ? robustGeometryBox(geometry) : fullGeometryBox(geometry)
     if (!childBox || childBox.isEmpty()) return
     childBox.applyMatrix4(child.matrixWorld)
     box.union(childBox)
   })
   return box
+}
+
+function fullGeometryBox(geometry: THREE.BufferGeometry) {
+  if (!geometry.boundingBox) geometry.computeBoundingBox()
+  return geometry.boundingBox?.clone() ?? null
+}
+
+function robustGeometryBox(geometry: THREE.BufferGeometry) {
+  const position = geometry.getAttribute('position')
+  if (!position) return null
+  const bounds = robustPointBoundsFromFlatPositions(position.array, position.itemSize)
+  if (!bounds) return fullGeometryBox(geometry)
+  return new THREE.Box3(
+    new THREE.Vector3(bounds.min.x, bounds.min.y, bounds.min.z),
+    new THREE.Vector3(bounds.max.x, bounds.max.y, bounds.max.z),
+  )
 }
 
 function createFrameMarkers(metadata: DebugFrameCloudMetadata) {

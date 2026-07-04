@@ -379,6 +379,32 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
 - Browser verification loaded the Postshot cactus sample as `splat_ply` fallback and used `Flip Y` to inspect it upright in large view.
 - Screenshot saved to ignored `data/manual-verification/cactus-orientation-flip-y-large-view.png`.
 
+## First recognizable RoomSplat splat continuation notes
+
+- Added viewer-side robust/focused fitting for point-based artifacts so outliers do not always dominate the camera.
+- Added a Gaussian PLY fallback that maps Nerfstudio `f_dc_*`, `opacity`, and `scale_*` properties to scaled alpha point sprites when GaussianSplats3D times out.
+- Restored GaussianSplats3D timeout to 15 seconds; Nerfstudio PLYs still fall back instead of native splat rendering.
+- Verified existing RoomSplat splats in the browser:
+  - Objectron cup, 53 frames, 1000 Splatfacto iterations, 12,412 splat vertices, 2.9 MB: not recognizable.
+  - Objectron chair, 60 frames, 1000 Splatfacto iterations, 44,601 splat vertices, 10.6 MB: partially suggestive but not confidently recognizable.
+- Generated and verified a new Objectron shoe splat:
+  - 10 frames, 1000 Splatfacto iterations, 12,255 splat vertices, 3.0 MB.
+  - 10 frames, 3000 Splatfacto iterations, 165,962 splat vertices, 41.2 MB.
+- Best current screenshot: ignored `data/manual-verification/recognizable-splat-shoe-3000-gaussian-fallback-large-view.png`.
+- Current assessment: shoe 3000 is the best candidate and has a rough shoe/sole-like region, but the active goal is not yet complete because the object is still too noisy to call robustly recognizable.
+- Frontend helper tests passed with 12 tests and Vite build passed with the existing chunk-size warning after these viewer changes.
+- Next likely step: improve native Nerfstudio Gaussian PLY rendering compatibility or improve reconstruction input/masking; viewer-only camera controls are no longer the main bottleneck.
+- Created a local ignored masked-chair project from the existing Objectron chair frames:
+  - Project `a2e709418e654a6ca6319bf21e4ef231`, `Objectron chair masked orange 60 frames`.
+  - Input prep: 60 existing chair frames, downscaled to 720x960, with background damped outside the orange chair silhouette.
+  - Splatfacto 1000 iterations completed in 173.71 seconds.
+  - Output `reconstruction/splat.ply` is a real Nerfstudio PLY, 7,239,472 bytes, 29,185 vertices.
+  - Metadata reports `status: succeeded`, `is_reconstruction: true`, and `output_path: reconstruction/splat.ply`.
+- Browser verification loaded the masked-chair artifact as `splat_ply`; GaussianSplats3D native rendering still timed out, then the Gaussian PLY fallback displayed it as scaled alpha sprites.
+- Manual screenshot: ignored `data/manual-verification/recognizable-splat-chair-masked-1000-gaussian-fallback-large-view.png`.
+- Pixel check for the masked-chair screenshot: 598x830, 31,085 unique colors, 53,132 non-background pixels, 5,690 orange pixels, orange bbox 230x212 px.
+- Current assessment: this satisfies the first recognizable RoomSplat splat goal as a recognizable orange bowl-chair object from a real local Nerfstudio/Splatfacto reconstruction, with the limitation that browser native splat rendering still falls back.
+
 ## Milestone 8 notes
 
 - Expanded README into a Windows-oriented setup, configure, run, workflow, test, capture, and output guide.
