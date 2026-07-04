@@ -2,12 +2,12 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented.
-Current milestone: Milestone 3 - Video import and frame extraction.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented.
+Current milestone: Milestone 4 - Reconstruction spike.
 
 ## Latest completed milestone
 
-Milestone 2 - Local project storage.
+Milestone 3 - Video import and frame extraction.
 
 ## How to run
 
@@ -48,8 +48,8 @@ npm --prefix frontend run build
 ## Known issues
 
 - Frontend validation used bundled `pnpm` because `npm` is not available on PATH in this shell.
-- Pipeline tests for frame extraction are still placeholders and do not exercise real media handling yet.
-- Video import and frame extraction services are placeholders.
+- Frame extraction tests use deterministic animated GIF fixtures; general video formats require `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
+- Frame extraction is synchronous until the Milestone 5 job system exists.
 - No reconstruction pipeline selected yet.
 - `.ply` may mean point cloud or splat data depending on pipeline stage; UI must label this.
 - `.glb` export path is uncertain until representation is known.
@@ -65,10 +65,24 @@ npm --prefix frontend run build
 - `npm --prefix frontend run build` - not run in this shell because `npm` is not on PATH
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 7 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 13 tests
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 3
 
 ## Next step
 
-Implement Milestone 3 as the next vertical slice: import a local video into a selected project `input/` directory, record import metadata, add a real frame extraction service/script with synthetic or tiny media tests, and expose the upload/extraction status in the frontend. Do not start reconstruction work until video import and frame extraction are validated.
+Start Milestone 4: run the reconstruction spike and select/document the first practical local Windows-native Gaussian Splatting / NeRF path. Do not claim placeholder outputs are real reconstruction.
+
+## Milestone 3 notes
+
+- Backend now supports raw video upload with `POST /projects/{project_id}/videos/upload?filename=...`.
+- Backend now supports synchronous frame extraction with `POST /projects/{project_id}/frames/extract`.
+- Uploaded videos are copied into project `input/`.
+- Video import metadata is written to `metadata/video_import.json`.
+- Extracted frames are written to `frames/frame_*.png`.
+- Frame extraction metadata is written to `metadata/frame_extraction.json`.
+- Synthetic/tiny media tests generate animated GIF fixtures in temporary test folders.
+- General `.mp4`, `.mov`, `.avi`, `.mkv`, and `.webm` extraction requires `ffmpeg` on PATH or configured through `ROOMSPLAT_FFMPEG_PATH`.
+- Frontend now supports selecting a project, uploading video, configuring stride/max frames, and showing extraction metadata.
 
 ## Milestone 2 notes
 

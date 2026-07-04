@@ -8,11 +8,14 @@ The first version focuses on the local engine: import a video, extract frames, r
 
 - FastAPI backend with `GET /health`.
 - Local project storage with `GET /projects` and `POST /projects`.
-- Vite + React frontend displaying backend health and a create/list project flow.
+- Video upload into project `input/` folders.
+- Deterministic frame extraction into project `frames/` folders.
+- Vite + React frontend displaying backend health, create/list projects, video upload, and extraction status.
 
 ## What it does not do yet
 
 - No real Gaussian Splatting / NeRF pipeline has been selected or integrated yet.
+- General MP4/MOV extraction requires `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - No live phone/webcam streaming yet.
 - No native Android app.
 - No cloud processing or user accounts.

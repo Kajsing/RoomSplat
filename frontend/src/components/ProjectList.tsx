@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
 import { createProject, listProjects, Project } from '../api'
 
-export default function ProjectList() {
+type ProjectListProps = {
+  selectedProjectId?: string
+  onSelectProject: (project: Project) => void
+}
+
+export default function ProjectList({ selectedProjectId, onSelectProject }: ProjectListProps) {
   const [projects, setProjects] = useState<Project[]>([])
   const [name, setName] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -35,6 +40,7 @@ export default function ProjectList() {
     try {
       const project = await createProject(name)
       setProjects((currentProjects) => [project, ...currentProjects])
+      onSelectProject(project)
       setName('')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not create project')
@@ -78,6 +84,13 @@ export default function ProjectList() {
             <strong>{project.name}</strong>
             <span style={metaStyle}>{new Date(project.created_at).toLocaleString()}</span>
             <code style={codeStyle}>{project.id}</code>
+            <button
+              type="button"
+              onClick={() => onSelectProject(project)}
+              style={project.id === selectedProjectId ? selectedButtonStyle : secondaryButtonStyle}
+            >
+              {project.id === selectedProjectId ? 'Selected' : 'Select'}
+            </button>
           </li>
         ))}
       </ul>
@@ -133,6 +146,22 @@ const buttonStyle = {
   background: '#1f883d',
   color: '#ffffff',
   fontWeight: 700,
+} satisfies CSSProperties
+
+const secondaryButtonStyle = {
+  justifySelf: 'start',
+  padding: '8px 12px',
+  border: '1px solid #d0d7de',
+  borderRadius: 6,
+  background: '#ffffff',
+  color: '#24292f',
+  fontWeight: 700,
+} satisfies CSSProperties
+
+const selectedButtonStyle = {
+  ...secondaryButtonStyle,
+  borderColor: '#1f883d',
+  color: '#1f883d',
 } satisfies CSSProperties
 
 const errorStyle = {

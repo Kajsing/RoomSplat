@@ -54,6 +54,20 @@ class ProjectStore:
 
         return sorted(projects, key=lambda project: project.created_at, reverse=True)
 
+    def get_project(self, project_id: str) -> ProjectResponse:
+        project_dir = self.get_project_dir(project_id)
+        metadata_path = project_dir / "metadata" / "project.json"
+        project = self._read_metadata(metadata_path)
+        if project is None:
+            raise ProjectStoreError("Project was not found.")
+        return project
+
+    def get_project_dir(self, project_id: str) -> Path:
+        project_dir = self._safe_project_dir(project_id)
+        if not project_dir.is_dir():
+            raise ProjectStoreError("Project was not found.")
+        return project_dir
+
     def _safe_project_dir(self, project_id: str) -> Path:
         if not re.fullmatch(r"[a-f0-9]{32}", project_id):
             raise ProjectStoreError("Project id is invalid.")

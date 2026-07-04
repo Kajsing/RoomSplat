@@ -15,6 +15,7 @@ data/**
 *.avi
 *.mkv
 *.webm
+*.gif
 *.ply
 *.glb
 *.obj

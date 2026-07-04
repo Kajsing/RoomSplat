@@ -6,8 +6,13 @@ Each scan project is stored under the configured local data directory. The backe
 project-root/
   metadata/
     project.json
+    video_import.json
+    frame_extraction.json
   input/
+    source videos
   frames/
+    frame_000001.png
+    frame_000002.png
   reconstruction/
     metadata.json
     cameras.json
@@ -29,5 +34,6 @@ project-root/
 
 - Keep generated videos, frames, models, splats, checkpoints, and exports out of Git.
 - Project folders are created under the configured data directory and named by project ID.
-- Project metadata should record source video, frame extraction settings, job status, and artifact types.
+- Project metadata records source video and frame extraction settings before reconstruction jobs exist.
+- Future job metadata should record job status and artifact types.
 - All paths must stay inside the configured data directory.

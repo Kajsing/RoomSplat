@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { fetchHealth } from './api'
+import { fetchHealth, Project } from './api'
 import ProjectList from './components/ProjectList'
+import UploadPanel from './components/UploadPanel'
 
 export default function App() {
   const [message, setMessage] = useState('Loading backend health...')
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   useEffect(() => {
     fetchHealth().then((h) => setMessage(`${h.app}: ${h.status} (${h.version})`)).catch((e) => setMessage(`Backend unavailable: ${e.message}`))
   }, [])
@@ -14,7 +16,8 @@ export default function App() {
         <h1 style={titleStyle}>Local 3D Room Mapper</h1>
         <p style={healthStyle}>{message}</p>
       </header>
-      <ProjectList />
+      <ProjectList selectedProjectId={selectedProject?.id} onSelectProject={setSelectedProject} />
+      <UploadPanel project={selectedProject} />
     </main>
   )
 }

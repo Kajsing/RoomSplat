@@ -13,6 +13,35 @@ export type Project = {
   path: string
 }
 
+export type VideoImport = {
+  project_id: string
+  original_filename: string
+  stored_filename: string
+  source_video: string
+  size_bytes: number
+  content_type: string | null
+  imported_at: string
+}
+
+export type FrameExtraction = {
+  project_id: string
+  source_video: string
+  frames_dir: string
+  fps: number
+  frame_count: number
+  extracted_frame_count: number
+  extraction_stride: number
+  width: number
+  height: number
+  extracted_at: string
+}
+
+export type FrameExtractionOptions = {
+  source_video?: string
+  stride: number
+  max_frames?: number
+}
+
 type ProjectListResponse = {
   projects: Project[]
 }
@@ -21,7 +50,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init)
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(errorText || `Request failed with ${response.status}`)
+    throw new Error(readErrorMessage(errorText) || `Request failed with ${response.status}`)
   }
   return response.json() as Promise<T>
 }
@@ -41,4 +70,30 @@ export async function createProject(name: string, baseUrl = DEFAULT_BASE_URL) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   })
+}
+
+export async function uploadVideo(projectId: string, file: File, baseUrl = DEFAULT_BASE_URL) {
+  const params = new URLSearchParams({ filename: file.name })
+  return requestJson<VideoImport>(`${baseUrl}/projects/${projectId}/videos/upload?${params}`, {
+    method: 'POST',
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    body: file,
+  })
+}
+
+export async function extractFrames(projectId: string, options: FrameExtractionOptions, baseUrl = DEFAULT_BASE_URL) {
+  return requestJson<FrameExtraction>(`${baseUrl}/projects/${projectId}/frames/extract`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
+}
+
+function readErrorMessage(text: string) {
+  try {
+    const payload = JSON.parse(text) as { detail?: string }
+    return payload.detail || text
+  } catch {
+    return text
+  }
 }
