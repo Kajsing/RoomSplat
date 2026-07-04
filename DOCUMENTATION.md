@@ -227,6 +227,23 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
 - UI label for `debug_frame_cloud_ply` is now `Debug frame planes` to reduce confusion with real reconstruction.
 - Local browser smoke used COLMAP 4.1.0 no-CUDA from ignored `data/tools/`, generated `reconstruction/sparse-point-cloud.ply`, and verified the real point-cloud viewer state.
 
+## Nerfstudio local environment preflight notes
+
+- Added dependency-free `.env` loading in `backend/app/config.py`; process environment variables still override `.env` values.
+- Added a local ignored `.env` on this machine with `ROOMSPLAT_DATA_DIR`, `ROOMSPLAT_FFMPEG_PATH`, and `ROOMSPLAT_COLMAP_PATH`.
+- Extended the Nerfstudio/Splatfacto readiness report to include FFmpeg, COLMAP, `nvidia-smi`, `nvcc`, and Visual Studio C++ compiler readiness in addition to the Nerfstudio CLIs and Python modules.
+- Local audit on July 4, 2026:
+  - Python available as `py -3.12`; the plain `python` alias points to the Windows Store stub in this shell.
+  - GPU available: NVIDIA GeForce RTX 3080 Ti via `nvidia-smi`.
+  - FFmpeg available through WinGet.
+  - Local COLMAP available at `data/tools/colmap-4.1.0-nocuda/bin/colmap.exe`.
+  - Visual Studio Build Tools 2022 are installed, and `cl.exe` works after calling `vcvars64.bat`.
+  - CUDA Toolkit/`nvcc` is not installed or not on `PATH`.
+  - `ns-process-data`, `ns-train`, and `ns-export` are not installed or not on `PATH`.
+- Ran `reconstruct_splat` on Objectron cup project `9522ce63dbfc454fb638fae38375863c` with `max_iterations=25`.
+- Result: `metadata/splat_reconstruction.json` was updated with `status: blocked_missing_dependencies`, `output_path: null`, and no fake `reconstruction/splat.ply`.
+- Next step for real splat output: install a Windows-native isolated Nerfstudio environment with compatible PyTorch/CUDA, CUDA Toolkit/`nvcc`, and Nerfstudio CLI commands, from a Visual Studio Developer Command Prompt, then set `ROOMSPLAT_NERFSTUDIO_BIN_DIR` or the three `ROOMSPLAT_NS_*_PATH` values and rerun `reconstruct_splat`.
+
 ## Usable 3D Viewer Preview notes
 
 - Extended `debug_frame_cloud` job params: `max_points`, `frame_step`, `arc_degrees`, and `plane_width`.

@@ -19,16 +19,29 @@ class AppConfig(BaseModel):
 
 
 def get_config() -> AppConfig:
-    data_dir = Path(os.environ.get("ROOMSPLAT_DATA_DIR") or os.environ.get("DATA_DIR", "data"))
-    ffmpeg_path = os.environ.get("ROOMSPLAT_FFMPEG_PATH") or os.environ.get("FFMPEG_PATH")
-    colmap_path = os.environ.get("ROOMSPLAT_COLMAP_PATH") or os.environ.get("COLMAP_PATH")
-    nerfstudio_bin_dir = os.environ.get("ROOMSPLAT_NERFSTUDIO_BIN_DIR")
-    ns_process_data_path = os.environ.get("ROOMSPLAT_NS_PROCESS_DATA_PATH")
-    ns_train_path = os.environ.get("ROOMSPLAT_NS_TRAIN_PATH")
-    ns_export_path = os.environ.get("ROOMSPLAT_NS_EXPORT_PATH")
-    max_upload_mb = os.environ.get("ROOMSPLAT_MAX_UPLOAD_MB") or os.environ.get("MAX_UPLOAD_MB")
+    env_file = _read_env_file(Path(".env"))
+
+    def env_value(*names: str) -> str | None:
+        for name in names:
+            value = os.environ.get(name)
+            if value:
+                return value
+        for name in names:
+            value = env_file.get(name)
+            if value:
+                return value
+        return None
+
+    data_dir = Path(env_value("ROOMSPLAT_DATA_DIR", "DATA_DIR") or "data")
+    ffmpeg_path = env_value("ROOMSPLAT_FFMPEG_PATH", "FFMPEG_PATH")
+    colmap_path = env_value("ROOMSPLAT_COLMAP_PATH", "COLMAP_PATH")
+    nerfstudio_bin_dir = env_value("ROOMSPLAT_NERFSTUDIO_BIN_DIR")
+    ns_process_data_path = env_value("ROOMSPLAT_NS_PROCESS_DATA_PATH")
+    ns_train_path = env_value("ROOMSPLAT_NS_TRAIN_PATH")
+    ns_export_path = env_value("ROOMSPLAT_NS_EXPORT_PATH")
+    max_upload_mb = env_value("ROOMSPLAT_MAX_UPLOAD_MB", "MAX_UPLOAD_MB")
     max_upload_bytes = int(max_upload_mb) * 1024 * 1024 if max_upload_mb else AppConfig().max_upload_bytes
-    timeout_seconds = int(os.environ.get("ROOMSPLAT_FFMPEG_TIMEOUT_SECONDS", AppConfig().ffmpeg_timeout_seconds))
+    timeout_seconds = int(env_value("ROOMSPLAT_FFMPEG_TIMEOUT_SECONDS") or AppConfig().ffmpeg_timeout_seconds)
     return AppConfig(
         data_dir=data_dir,
         ffmpeg_path=ffmpeg_path,
@@ -40,3 +53,19 @@ def get_config() -> AppConfig:
         max_upload_bytes=max_upload_bytes,
         ffmpeg_timeout_seconds=timeout_seconds,
     )
+
+
+def _read_env_file(path: Path) -> dict[str, str]:
+    if not path.is_file():
+        return {}
+    values: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            values[key] = value
+    return values

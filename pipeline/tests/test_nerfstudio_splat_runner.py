@@ -24,6 +24,29 @@ def test_nerfstudio_splat_runner_reports_missing_cli_dependencies(tmp_path) -> N
     assert readiness.next_steps
 
 
+def test_nerfstudio_splat_runner_reports_supporting_tool_paths(tmp_path) -> None:
+    bin_dir = _write_fake_bin(tmp_path)
+    tools_dir = tmp_path / "tools"
+    tools_dir.mkdir()
+    ffmpeg = tools_dir / "ffmpeg.exe"
+    colmap = tools_dir / "colmap.exe"
+    ffmpeg.write_text("placeholder", encoding="utf-8")
+    colmap.write_text("placeholder", encoding="utf-8")
+    runner = NerfstudioSplatRunner(
+        nerfstudio_bin_dir=str(bin_dir),
+        ffmpeg_path=str(ffmpeg),
+        colmap_path=str(colmap),
+    )
+
+    readiness = runner.assess()
+    dependencies = {dependency.name: dependency for dependency in readiness.dependencies}
+
+    assert dependencies["ffmpeg"].available is True
+    assert dependencies["colmap"].available is True
+    assert dependencies["ffmpeg"].detail.endswith("ffmpeg.exe")
+    assert dependencies["colmap"].detail.endswith("colmap.exe")
+
+
 def test_nerfstudio_splat_runner_builds_argument_list_commands(tmp_path) -> None:
     bin_dir = _write_fake_bin(tmp_path)
     paths = _paths(tmp_path)

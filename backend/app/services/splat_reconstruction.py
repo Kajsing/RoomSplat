@@ -34,12 +34,16 @@ class SplatReconstructionService:
         ns_train_path: str | None = None,
         ns_export_path: str | None = None,
         nerfstudio_bin_dir: str | None = None,
+        ffmpeg_path: str | None = None,
+        colmap_path: str | None = None,
     ) -> None:
         self.project_store = project_store
         self.ns_process_data_path = ns_process_data_path
         self.ns_train_path = ns_train_path
         self.ns_export_path = ns_export_path
         self.nerfstudio_bin_dir = nerfstudio_bin_dir
+        self.ffmpeg_path = ffmpeg_path
+        self.colmap_path = colmap_path
 
     def reconstruct_splat(
         self,
@@ -76,6 +80,8 @@ class SplatReconstructionService:
             ns_train_path=self.ns_train_path,
             ns_export_path=self.ns_export_path,
             nerfstudio_bin_dir=self.nerfstudio_bin_dir,
+            ffmpeg_path=self.ffmpeg_path,
+            colmap_path=self.colmap_path,
         )
         readiness = runner.assess()
         process_command, train_command, export_command = _safe_command_preview(runner, paths, clean_method, clean_max_iterations)

@@ -33,18 +33,20 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 
 ## Windows prerequisites
 
-- Python 3.12 recommended.
+- Python 3.12 recommended. On some Windows installs, use `py -3.12` if the `python` alias points to the Microsoft Store stub.
 - Node.js 20+ and npm.
 - Git.
 - Optional for MP4/MOV/AVI/MKV/WebM extraction: ffmpeg on `PATH` or configured with `ROOMSPLAT_FFMPEG_PATH`.
 - Optional for real sparse point-cloud reconstruction: COLMAP on `PATH` or configured with `ROOMSPLAT_COLMAP_PATH`.
 - Optional for real Gaussian Splatting reconstruction: a separate Nerfstudio/Splatfacto environment with `ns-process-data`, `ns-train`, `ns-export`, PyTorch/CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.
 
-GIF fixtures and tests work without ffmpeg. Real reconstruction training is not integrated yet.
+GIF fixtures and tests work without ffmpeg. Real splat training is wired through the adapter, but it remains blocked until the Nerfstudio CLI tools and CUDA Toolkit are installed.
+
+Current local machine note from the July 4, 2026 preflight: RTX 3080 Ti and Visual Studio Build Tools are present, FFmpeg and local COLMAP are configured, but CUDA Toolkit/`nvcc` and the Nerfstudio CLI commands are not present yet.
 
 ## Configure
 
-Copy `.env.example` to `.env` if you want local overrides. Important defaults:
+Copy `.env.example` to `.env` if you want local overrides. The backend reads `.env` from the repo root; process environment variables still take precedence. Important defaults:
 
 - `ROOMSPLAT_DATA_DIR=./data`
 - `ROOMSPLAT_MAX_UPLOAD_MB=2048`
@@ -104,11 +106,29 @@ Debug frame plane artifacts are also debug-only and must not be described as rec
 If COLMAP is not installed, the point-cloud reconstruction job fails with setup guidance instead of writing fake output.
 If Nerfstudio is not installed, the splat reconstruction job succeeds as a readiness check, writes `metadata/splat_reconstruction.json`, and does not write `reconstruction/splat.ply`.
 
+## Nerfstudio setup target
+
+The next real-splat setup step is a Windows-native isolated Nerfstudio environment, not Docker or cloud upload. Follow the upstream Windows guidance: install a compatible PyTorch/CUDA stack, install CUDA Toolkit so `nvcc` is available, run build/install commands from a Visual Studio Developer Command Prompt so `cl.exe` is active, then install Nerfstudio and verify:
+
+```bash
+ns-process-data --help
+ns-train splatfacto --help
+ns-export gaussian-splat --help
+```
+
+After that, set `ROOMSPLAT_NERFSTUDIO_BIN_DIR` to the environment `Scripts` folder or set the three individual `ROOMSPLAT_NS_*_PATH` values, then rerun the `reconstruct_splat` job.
+
 ## Run tests
 
 ```bash
 python -m pytest backend/tests pipeline/tests
 npm --prefix frontend run build
+```
+
+If `python` opens the Windows Store alias, use:
+
+```bash
+py -3.12 -m pytest backend/tests pipeline/tests
 ```
 
 If npm is not available in your shell but Node is, use the direct Vite CLI from `frontend/` as a fallback:

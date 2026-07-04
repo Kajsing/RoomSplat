@@ -68,12 +68,16 @@ class NerfstudioSplatRunner:
         ns_train_path: str | None = None,
         ns_export_path: str | None = None,
         nerfstudio_bin_dir: str | None = None,
+        ffmpeg_path: str | None = None,
+        colmap_path: str | None = None,
         command_runner: CommandRunner | None = None,
     ) -> None:
         self.ns_process_data_path = ns_process_data_path
         self.ns_train_path = ns_train_path
         self.ns_export_path = ns_export_path
         self.nerfstudio_bin_dir = nerfstudio_bin_dir
+        self.ffmpeg_path = ffmpeg_path
+        self.colmap_path = colmap_path
         self._command_runner = command_runner or self._run_subprocess
 
     def assess(self) -> SplatReadiness:
@@ -86,6 +90,9 @@ class NerfstudioSplatRunner:
             _python_module_dependency("gsplat"),
             _executable_dependency("nvidia-smi", None, None, required=False),
             _executable_dependency("nvcc", None, None, required=False),
+            _visual_studio_cl_dependency(),
+            _executable_dependency("ffmpeg", self.ffmpeg_path, None, required=False),
+            _executable_dependency("colmap", self.colmap_path, None, required=False),
         )
         required = dependencies[:3]
         blockers = tuple(dependency.detail for dependency in required if not dependency.available)
@@ -256,6 +263,33 @@ def _executable_dependency(
         return SplatDependency(executable_name, False, "executable", f"{prefix}: {exc}")
 
 
+def _visual_studio_cl_dependency() -> SplatDependency:
+    path = shutil.which("cl") or shutil.which("cl.exe")
+    if path:
+        return SplatDependency("cl", True, "executable", path)
+    known_vcvars = (
+        Path("C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvars64.bat"),
+        Path("C:/Program Files/Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvars64.bat"),
+        Path("C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat"),
+        Path("C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/Build/vcvars64.bat"),
+        Path("C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat"),
+    )
+    for vcvars in known_vcvars:
+        if vcvars.is_file():
+            return SplatDependency(
+                "cl",
+                True,
+                "executable",
+                f"Visual Studio C++ toolchain found via {vcvars}; run commands from a Developer Command Prompt or call vcvars64.bat first.",
+            )
+    return SplatDependency(
+        "cl",
+        False,
+        "executable",
+        "Optional: cl.exe was not found on PATH and no known Visual Studio vcvars64.bat was found.",
+    )
+
+
 def _python_module_dependency(module_name: str) -> SplatDependency:
     available = importlib.util.find_spec(module_name) is not None
     return SplatDependency(
@@ -276,6 +310,7 @@ def _next_steps(blockers: Sequence[str]) -> tuple[str, ...]:
         )
     return (
         "Create an isolated Nerfstudio environment with Python 3.8-3.10, PyTorch CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.",
+        "On Windows, run Nerfstudio install/training commands from a Visual Studio Developer Command Prompt when CUDA extensions need cl.exe.",
         "Install Nerfstudio and run ns-train splatfacto --help.",
         "Ensure ns-process-data, ns-train, and ns-export are on PATH or set ROOMSPLAT_NERFSTUDIO_BIN_DIR.",
         "Keep COLMAP and FFmpeg available for ns-process-data images/video processing.",
