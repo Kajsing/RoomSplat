@@ -7,7 +7,8 @@ The first version focuses on the local engine: import a video, extract frames, r
 ## What works now
 
 - FastAPI backend with `GET /health`.
-- Vite + React frontend displaying backend health.
+- Local project storage with `GET /projects` and `POST /projects`.
+- Vite + React frontend displaying backend health and a create/list project flow.
 
 ## What it does not do yet
 

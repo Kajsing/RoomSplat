@@ -2,12 +2,12 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented.
-Current milestone: Milestone 1 - Minimal local hosted web app.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented.
+Current milestone: Milestone 3 - Video import and frame extraction.
 
 ## Latest completed milestone
 
-Milestone 0 - Repository scaffold and docs.
+Milestone 2 - Local project storage.
 
 ## How to run
 
@@ -47,6 +47,9 @@ npm --prefix frontend run build
 
 ## Known issues
 
+- Frontend validation used bundled `pnpm` because `npm` is not available on PATH in this shell.
+- Pipeline tests for frame extraction are still placeholders and do not exercise real media handling yet.
+- Video import and frame extraction services are placeholders.
 - No reconstruction pipeline selected yet.
 - `.ply` may mean point cloud or splat data depending on pipeline stage; UI must label this.
 - `.glb` export path is uncertain until representation is known.
@@ -60,7 +63,19 @@ npm --prefix frontend run build
 - `npm --prefix frontend run build`
 - `C:\Users\chrkaj\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed
 - `npm --prefix frontend run build` - not run in this shell because `npm` is not on PATH
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 7 tests
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed
 
 ## Next step
 
-Continue Milestone 1 verification, then implement Milestone 2 local project storage.
+Implement Milestone 3 as the next vertical slice: import a local video into a selected project `input/` directory, record import metadata, add a real frame extraction service/script with synthetic or tiny media tests, and expose the upload/extraction status in the frontend. Do not start reconstruction work until video import and frame extraction are validated.
+
+## Milestone 2 notes
+
+- Backend now supports `POST /projects` and `GET /projects`.
+- Project folders are created under the configured data directory using UUID project IDs.
+- Each project contains `input/`, `frames/`, `reconstruction/`, `exports/`, and `metadata/`.
+- Project metadata is written to `metadata/project.json`.
+- Data directory config reads `ROOMSPLAT_DATA_DIR`, then `DATA_DIR`, then defaults to `data`.
+- Frontend now has a create/list project flow.
+- In this shell, direct Vite CLI was the reliable frontend validation path because `npm` is unavailable and bundled `pnpm` enforces build-script approval checks.
