@@ -96,12 +96,20 @@ function upsertJob(jobs: Job[], job: Job) {
 }
 
 function formatJobType(jobType: Job['job_type']) {
-  return jobType === 'frame_extraction' ? 'Frame extraction' : 'Reconstruction spike'
+  const labels = {
+    frame_extraction: 'Frame extraction',
+    reconstruction_spike: 'Reconstruction spike',
+    debug_frame_cloud: 'Debug 3D preview',
+  }
+  return labels[jobType]
 }
 
 function summarizeResult(job: Job) {
   if (job.job_type === 'frame_extraction') {
     return `${job.result?.extracted_frame_count ?? '?'} frames`
+  }
+  if (job.job_type === 'debug_frame_cloud') {
+    return `${job.result?.sampled_points ?? '?'} debug points`
   }
   return String(job.result?.status ?? 'report ready')
 }

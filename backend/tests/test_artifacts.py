@@ -14,6 +14,7 @@ def test_artifact_listing_labels_reconstruction_and_debug_files(tmp_path, monkey
 
     (project_dir / "reconstruction" / "pointcloud.ply").write_text(_tiny_ply(), encoding="utf-8")
     (project_dir / "reconstruction" / "splat.ply").write_text(_tiny_ply(), encoding="utf-8")
+    (project_dir / "reconstruction" / "debug-frame-room.ply").write_text(_tiny_ply(), encoding="utf-8")
     (project_dir / "exports" / "result.glb").write_bytes(b"glTF")
     (project_dir / "metadata" / "reconstruction_spike.json").write_text(
         json.dumps({"status": "stop_condition_missing_dependencies"}),
@@ -26,11 +27,15 @@ def test_artifact_listing_labels_reconstruction_and_debug_files(tmp_path, monkey
     artifacts = response.json()["artifacts"]
     labels = {artifact["relative_path"]: artifact["artifact_type"] for artifact in artifacts}
     assert labels == {
+        "reconstruction/debug-frame-room.ply": "debug_frame_cloud_ply",
         "reconstruction/pointcloud.ply": "point_cloud_ply",
         "reconstruction/splat.ply": "splat_ply",
         "exports/result.glb": "mesh_glb",
         "metadata/reconstruction_spike.json": "debug_report",
     }
+    debug_cloud = next(artifact for artifact in artifacts if artifact["artifact_type"] == "debug_frame_cloud_ply")
+    assert debug_cloud["viewer_supported"] is True
+    assert "not a reconstruction" in debug_cloud["description"].lower()
     assert {artifact["viewer_supported"] for artifact in artifacts if artifact["artifact_type"] == "debug_report"} == {True}
     assert {artifact["viewer_supported"] for artifact in artifacts if artifact["artifact_type"] == "mesh_glb"} == {True}
 

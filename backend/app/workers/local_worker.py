@@ -6,6 +6,7 @@ from typing import Any
 
 from app.config import AppConfig
 from app.models.schemas import JobResponse
+from app.services.debug_frame_cloud import DebugFrameCloudService
 from app.services.frame_extraction import FrameExtractionService
 from app.services.job_store import JobStore
 from app.services.project_store import ProjectStore
@@ -33,6 +34,8 @@ class LocalWorker:
             return self._run_frame_extraction(job)
         if job.job_type == "reconstruction_spike":
             return self._run_reconstruction_spike(job)
+        if job.job_type == "debug_frame_cloud":
+            return self._run_debug_frame_cloud(job)
         raise ValueError(f"Unsupported job type: {job.job_type}")
 
     def _run_frame_extraction(self, job: JobResponse) -> dict[str, Any]:
@@ -58,6 +61,13 @@ class LocalWorker:
         report_path = write_report(project_dir, report)
         self.job_store.append_log(job.project_id, job.id, f"wrote reconstruction spike report: {report_path}")
         return report
+
+    def _run_debug_frame_cloud(self, job: JobResponse) -> dict[str, Any]:
+        service = DebugFrameCloudService(self.project_store)
+        max_points = int(job.params.get("max_points", 50_000))
+        result = service.generate(job.project_id, max_points=max_points)
+        self.job_store.append_log(job.project_id, job.id, f"wrote debug frame cloud: {result['output_path']}")
+        return result
 
 
 class WorkerPool:

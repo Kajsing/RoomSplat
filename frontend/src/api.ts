@@ -43,7 +43,7 @@ export type FrameExtractionOptions = {
   max_frames?: number
 }
 
-export type JobType = 'frame_extraction' | 'reconstruction_spike'
+export type JobType = 'frame_extraction' | 'reconstruction_spike' | 'debug_frame_cloud'
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed'
 
 export type Job = {
@@ -61,7 +61,7 @@ export type Job = {
   log_path: string
 }
 
-export type ArtifactType = 'point_cloud_ply' | 'splat_ply' | 'mesh_glb' | 'debug_report' | 'unsupported'
+export type ArtifactType = 'debug_frame_cloud_ply' | 'point_cloud_ply' | 'splat_ply' | 'mesh_glb' | 'debug_report' | 'unsupported'
 
 export type Artifact = {
   id: string
@@ -151,6 +151,10 @@ export async function extractFrames(projectId: string, options: FrameExtractionO
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(options),
   })
+}
+
+export async function getFrameExtraction(projectId: string, baseUrl = DEFAULT_BASE_URL) {
+  return requestJson<FrameExtraction>(`${baseUrl}/projects/${projectId}/frames/extraction`)
 }
 
 export async function createJob(projectId: string, jobType: JobType, params: Record<string, unknown>, baseUrl = DEFAULT_BASE_URL) {

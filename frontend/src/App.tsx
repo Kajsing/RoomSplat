@@ -28,7 +28,7 @@ export default function App() {
       />
       <UploadPanel project={selectedProject} onJobChange={setActiveJob} />
       <JobStatusPanel project={selectedProject} activeJob={activeJob} onJobChange={setActiveJob} />
-      <ViewerPanel project={selectedProject} activeJob={activeJob} />
+      <ViewerPanel project={selectedProject} activeJob={activeJob} onJobChange={setActiveJob} />
     </main>
   )
 }

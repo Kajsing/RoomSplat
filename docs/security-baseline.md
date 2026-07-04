@@ -54,10 +54,11 @@ Fix:
 - Timeout failures are reported as frame extraction errors.
 - `backend/tests/test_video_import.py` covers timeout handling.
 
-### Hardened: frontend local API and preview assumptions
+### Hardened: frontend local API and viewer assumptions
 
 - `frontend/src/api.ts` now reads `VITE_ROOMSPLAT_API_URL` / `VITE_BACKEND_URL` before falling back to `http://127.0.0.1:8000`.
-- `frontend/src/viewer/pointCloudViewer.ts` limits in-browser ASCII PLY preview to 50,000 vertices and tells users to download larger artifacts.
+- `frontend/src/components/ThreeViewer.tsx` renders listed 3D artifacts through Three.js, keeps debug reports as text, and labels splat fallback when GaussianSplats3D cannot read a file.
+- `backend/app/services/debug_frame_cloud.py` limits Frame Room Cloud debug output to 50,000 points and writes metadata with `mode: debug` and `not_reconstruction: true`.
 - Frame extraction jobs no longer need the frontend to echo an absolute `source_video` path back to the backend.
 
 ## Reviewed controls
@@ -71,6 +72,8 @@ Fix:
 - Artifact listing and downloads only expose files that resolve inside the project folder.
 - Export creation writes only under `exports/` and records `real` versus `placeholder` status.
 - Placeholder exports are explicit debug/workflow artifacts and are not labeled as real reconstruction.
+- Frame Room Cloud outputs are explicit debug viewer artifacts and are not labeled as real reconstruction.
+- `npm audit` was rerun after adding Three.js/GaussianSplats3D dependencies; Vite was upgraded to remove reported dev-server advisories.
 - `.gitignore` excludes generated videos, frames, splats, exports, checkpoints, data folders, build outputs, virtualenvs, caches, and logs.
 
 ## Residual risks
@@ -79,7 +82,7 @@ Fix:
 - Large or malformed media can still consume CPU/disk during parsing or ffmpeg extraction within the configured upload and timeout limits.
 - API responses currently include local filesystem paths for operator transparency; this is acceptable for local-only v1 but should be revisited before LAN or shared use.
 - Future real reconstruction adapters must preserve the same containment checks and avoid shell invocation.
-- Full in-browser GLB rendering and real GLB conversion remain future work.
+- Real GLB conversion remains future work even though the browser can now render GLB scene artifacts when they exist.
 - The current security baseline is focused and artifact-backed, not a complete production penetration test.
 
 ## Validation

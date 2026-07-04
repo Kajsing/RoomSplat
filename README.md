@@ -13,7 +13,8 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Video upload into project `input/` folders.
 - Deterministic frame extraction into project `frames/` folders.
 - Local background jobs for frame extraction and reconstruction-spike orchestration.
-- Artifact discovery/download APIs with explicit labels for point clouds, splats, GLB, and debug reports.
+- Artifact discovery/download APIs with explicit labels for debug frame clouds, point clouds, splats, GLB, and debug reports.
+- Browser Three.js viewer with orbit/inspect controls for debug frame clouds, point cloud PLY, splat PLY fallback, and GLB scenes.
 - Export APIs and UI controls for `.ply` / `.glb` outputs, including explicit placeholder labels for debug exports.
 - Vite + React frontend displaying backend health, create/list projects, video upload, job status, and artifact viewer states.
 - Focused security baseline docs and tests for path containment, upload limits, artifact downloads, and local-only assumptions.
@@ -22,7 +23,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 
 - No real Gaussian Splatting / NeRF training is integrated yet; the current reconstruction path is a dependency/readiness spike.
 - Placeholder exports can be created from the reconstruction spike report for UI/workflow testing, but they are labeled as placeholders and are not real reconstruction.
-- GLB artifacts currently get a metadata preview/download state; full in-browser mesh rendering is still future work.
+- Real Gaussian Splatting reconstruction is still future work; the current Frame Room Cloud preview is sampled from extracted frames for viewer/debug testing only.
 - General MP4/MOV extraction requires `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - No live phone/webcam streaming yet.
 - No native Android app.
@@ -85,11 +86,13 @@ Open the Vite URL shown in the terminal, usually `http://127.0.0.1:5173`.
 1. Create a project.
 2. Upload a short video or GIF.
 3. Extract frames through the local job flow.
-4. Run the reconstruction spike to check dependency readiness.
-5. Inspect listed artifacts/debug reports.
-6. Export `.ply` or `.glb` artifacts when available.
+4. Create a debug 3D preview if you want a quick Frame Room Cloud for testing viewer orientation and controls.
+5. Run the reconstruction spike to check dependency readiness.
+6. Inspect listed artifacts/debug reports in the browser viewer.
+7. Export `.ply` or `.glb` artifacts when available.
 
 Placeholder exports are allowed only for workflow/debug testing and are labeled as placeholders.
+Frame Room Cloud artifacts are also debug-only and must not be described as reconstruction output.
 
 ## Run tests
 
@@ -114,9 +117,10 @@ Generated videos, frames, reconstruction outputs, splats, checkpoints, and expor
 - Prefer bright, even lighting and overlapping camera paths.
 - Avoid fast pans, reflective surfaces, transparent objects, and textureless walls while testing.
 - `point_cloud_ply` is a conventional point cloud.
+- `debug_frame_cloud_ply` is a deterministic viewer/debug point cloud sampled from extracted frames; it is not a reconstruction.
 - `splat_ply` is Gaussian splat data stored in a PLY-like format, not a conventional point cloud.
 - `mesh_glb` is a portable scene/mesh container only when a real conversion path exists.
-- Large PLY files should be downloaded for full inspection; the browser preview is intentionally bounded.
+- Large PLY files should be downloaded for full inspection; the debug Frame Room Cloud generator caps output at 50,000 points.
 
 ## Documentation map
 

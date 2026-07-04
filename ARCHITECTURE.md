@@ -104,10 +104,13 @@ The backend discovers result artifacts and labels them before the frontend displ
 
 Current viewer behavior:
 
-- `point_cloud_ply`: ASCII PLY canvas preview with rotate/zoom controls.
-- `splat_ply`: debug point preview with an explicit splat label.
-- `mesh_glb`: GLB metadata preview and download; full mesh rendering is future Three.js work.
+- `debug_frame_cloud_ply`: Three.js point cloud view of Frame Room Cloud debug artifacts sampled from extracted frames; not reconstruction.
+- `point_cloud_ply`: Three.js point cloud view with orbit, pan, zoom, point size, color mode, grid, and axes controls.
+- `splat_ply`: attempts GaussianSplats3D rendering first; if the loader rejects the file, falls back to point-cloud preview with an explicit message.
+- `mesh_glb`: Three.js GLB scene loading through `GLTFLoader`.
 - `debug_report`: JSON/debug text, not a 3D artifact.
+
+The first splat-first viewer test artifact is Frame Room Cloud: a deterministic ASCII PLY with XYZ + RGB points, capped at 50,000 points, arranged as vertical frame planes along a shallow arc. It exists to test viewer UX and spatial orientation before real reconstruction is integrated.
 
 ### Export boundary
 
@@ -127,11 +130,12 @@ Current export behavior:
 3. Backend copies video into project `input/`.
 4. Backend creates a local job under `metadata/jobs/`.
 5. Local worker runs frame extraction, creates images in `frames/`, and writes metadata.
-6. Reconstruction-spike job consumes frames and writes dependency/output-contract guidance.
-7. Future reconstruction job consumes frames and produces artifacts in `reconstruction/`.
-8. Artifact service labels reconstruction/export/debug files.
-9. Export service creates user-facing files in `exports/`.
-10. Frontend displays artifacts through browser viewer states or download links.
+6. Optional debug-frame-cloud job consumes `metadata/frame_extraction.json` and `frames/`, then writes `reconstruction/debug-frame-room.ply` and `metadata/debug_frame_cloud.json`.
+7. Reconstruction-spike job consumes frames and writes dependency/output-contract guidance.
+8. Future reconstruction job consumes frames and produces artifacts in `reconstruction/`.
+9. Artifact service labels reconstruction/export/debug files.
+10. Export service creates user-facing files in `exports/`.
+11. Frontend displays artifacts through browser viewer states or download links.
 
 ## Error handling
 

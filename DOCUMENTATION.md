@@ -2,12 +2,12 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented.
-Current milestone: v1 baseline complete; next milestone should be selected by project owner.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented.
+Current milestone: Splat-first 3D browser viewer complete; next milestone should be selected by project owner.
 
 ## Latest completed milestone
 
-Milestone 8 - v1 hardening and security baseline.
+Splat-first 3D browser viewer.
 
 ## How to run
 
@@ -55,12 +55,12 @@ npm --prefix frontend run build
 - Windows-native Nerfstudio/gsplat setup may be fragile due to CUDA, PyTorch, and Visual Studio Build Tools requirements.
 - `.ply` may mean point cloud or splat data depending on pipeline stage; UI must label this.
 - `.glb` export path is uncertain until representation is known.
-- Full in-browser GLB mesh rendering is not implemented yet; GLB artifacts get a metadata preview and download link.
 - Placeholder exports are available for reconstruction spike debug reports only when explicitly requested; they are labeled as placeholders and are not real reconstruction output.
+- Frame Room Cloud artifacts are debug viewer point clouds sampled from extracted frames and are not real reconstruction output.
 - Windows-native GPU dependencies may be difficult.
 - v1 remains unauthenticated and should bind to `127.0.0.1`; do not expose the backend to untrusted networks.
 - API responses still include some absolute local paths for operator/debug transparency; keep this local-only or revise before shared/network use.
-- Browser PLY preview is intentionally limited for responsiveness; large artifacts should be downloaded for full inspection.
+- Frame Room Cloud generation is capped at 50,000 points for browser responsiveness; large real artifacts should still be downloaded for full inspection when needed.
 
 ## Commands run
 
@@ -88,10 +88,39 @@ npm --prefix frontend run build
 - Codex Security config preflight for `security_scan` - ready after declaring native v1 multi-agent runtime from tool surface
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 37 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 8
+- `pnpm dlx npm@latest --prefix frontend install three @mkkellogg/gaussian-splats-3d` with bundled Node on PATH - passed
+- `pnpm dlx npm@latest --prefix frontend install -D vite@latest` with bundled Node on PATH - passed, npm audit advisories cleared
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests/test_video_import.py backend/tests/test_jobs.py backend/tests/test_artifacts.py` - passed, 21 tests
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed with chunk-size warning after Three.js viewer
+- `POST /projects/9522ce63dbfc454fb638fae38375863c/jobs` with `debug_frame_cloud` - passed, generated 46,464 debug points
+- Browser smoke at `http://127.0.0.1:5173` - passed; Three.js canvas nonblank and viewer controls/artifact switching verified
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 42 tests after Splat-first viewer
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Splat-first viewer with chunk-size warning
+- `pnpm dlx npm@latest --prefix frontend audit --audit-level=moderate` - passed, 0 vulnerabilities
+- `git diff --check` - passed with line-ending warnings only
 
 ## Next step
 
-Select the next milestone. Good candidates: real reconstruction dependency setup, full Three.js GLB rendering, or a minimal end-to-end sample project pack.
+Select the next milestone. Good candidates: real reconstruction dependency setup, import/viewer polishing for larger artifacts, or a minimal end-to-end sample project pack.
+
+## Splat-first viewer notes
+
+- Added frontend dependencies `three` and `@mkkellogg/gaussian-splats-3d`.
+- Upgraded Vite to resolve current npm audit advisories reported after dependency installation.
+- Added `debug_frame_cloud` job type.
+- Added `GET /projects/{project_id}/frames/extraction` so the frontend can detect existing extracted-frame metadata.
+- Added `debug_frame_cloud_ply` artifact label.
+- Added `backend/app/services/debug_frame_cloud.py`.
+- The debug-frame-cloud job reads `metadata/frame_extraction.json` and sampled frame images, then writes `reconstruction/debug-frame-room.ply` and `metadata/debug_frame_cloud.json`.
+- Frame Room Cloud is deterministic, ASCII PLY with XYZ + RGB, capped at 50,000 points, and arranged as vertical frame planes along a shallow arc.
+- Frame Room Cloud metadata includes `mode: debug` and `not_reconstruction: true`.
+- Added a React/Three.js `ThreeViewer` with OrbitControls, grid, axes, lights, reset camera, fit, point size, color mode, and artifact warning labels.
+- `splat_ply` attempts GaussianSplats3D first and falls back to point-cloud rendering with an explicit message if the file is not loadable as splat data.
+- `mesh_glb` now loads through Three.js `GLTFLoader` instead of metadata-only preview.
+- Debug reports remain text views and are not treated as 3D artifacts.
+- Manual browser smoke used the Objectron cup project and generated `data/manual-verification/viewer-smoke.png` as an ignored screenshot artifact.
+- Browser pixel check found the Three.js canvas nonblank with 3,363 unique colors in the canvas crop.
+- Manual browser controls tested: grid/axes toggles, color mode, point size, reset camera, fit, artifact switching, and orbit/zoom pointer interaction.
 
 ## Milestone 8 notes
 
@@ -124,9 +153,9 @@ Select the next milestone. Good candidates: real reconstruction dependency setup
 - Added artifact serving under `GET /projects/{project_id}/artifacts/{artifact_id}/download`.
 - Artifact labels include `point_cloud_ply`, `splat_ply`, `mesh_glb`, `debug_report`, and `unsupported`.
 - Frontend viewer can select listed artifacts.
-- ASCII PLY artifacts render in a canvas preview with rotate/zoom controls.
+- ASCII PLY artifacts originally rendered in a 2D canvas preview; the current viewer uses Three.js through `ThreeViewer`.
 - Splat PLY uses the same debug point preview but keeps an explicit splat label.
-- GLB artifacts get a metadata preview and download link; full Three.js GLB mesh rendering remains future work.
+- GLB artifacts originally received a metadata preview; the current viewer loads GLB scene artifacts through Three.js `GLTFLoader`.
 - `reconstruction_spike.json` is shown as a debug report, not as a reconstructed artifact.
 
 ## Milestone 5 notes

@@ -66,6 +66,35 @@ def test_extract_frames_from_uploaded_video_records_metadata(tmp_path, monkeypat
     assert json.loads(metadata_path.read_text(encoding="utf-8")) == metadata
 
 
+def test_get_frame_extraction_returns_existing_metadata(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "Frame metadata"}).json()
+    client.post(
+        f"/projects/{project['id']}/videos/upload",
+        params={"filename": "tiny.gif"},
+        content=_tiny_gif_bytes(frame_count=2),
+        headers={"content-type": "image/gif"},
+    )
+    extracted = client.post(f"/projects/{project['id']}/frames/extract", json={"stride": 1}).json()
+
+    response = client.get(f"/projects/{project['id']}/frames/extraction")
+
+    assert response.status_code == 200
+    assert response.json() == extracted
+
+
+def test_get_frame_extraction_returns_404_when_missing(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "No frame metadata"}).json()
+
+    response = client.get(f"/projects/{project['id']}/frames/extraction")
+
+    assert response.status_code == 404
+    assert "No extracted frames metadata" in response.text
+
+
 def test_upload_rejects_unsupported_extension(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
     client = TestClient(app)

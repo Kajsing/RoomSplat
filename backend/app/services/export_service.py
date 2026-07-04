@@ -66,7 +66,7 @@ class ArtifactService:
             name=path.name,
             relative_path=relative_path.as_posix(),
             artifact_type=artifact_type,
-            viewer_supported=artifact_type in {"point_cloud_ply", "splat_ply", "mesh_glb", "debug_report"},
+            viewer_supported=artifact_type in {"debug_frame_cloud_ply", "point_cloud_ply", "splat_ply", "mesh_glb", "debug_report"},
             size_bytes=stat.st_size,
             modified_at=datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
             download_url=f"/projects/{project_id}/artifacts/{artifact_id}/download",
@@ -251,6 +251,8 @@ def _artifact_type(relative_path: Path) -> ArtifactType:
     parent = relative_path.parent.as_posix().lower()
     if relative_path == DEBUG_REPORT:
         return "debug_report"
+    if name == "debug-frame-room.ply" or name.startswith("debug-frame-"):
+        return "debug_frame_cloud_ply"
     if name.endswith(".glb"):
         return "mesh_glb"
     if name == "splat.ply" or "splat" in name:
@@ -265,6 +267,7 @@ def _description(artifact_type: ArtifactType, relative_path: Path | None = None)
         return "Placeholder export for workflow/debug testing. This is not a real reconstruction."
 
     descriptions = {
+        "debug_frame_cloud_ply": "Frame Room Cloud viewer/debug point cloud sampled from extracted frames. This is not a reconstruction.",
         "point_cloud_ply": "Conventional point-cloud PLY. This is not Gaussian splat data unless explicitly labeled as splat_ply.",
         "splat_ply": "Gaussian splat PLY-like artifact. This is not a conventional point cloud.",
         "mesh_glb": "Portable GLB scene or mesh artifact. Browser rendering requires GLB viewer support.",
@@ -275,7 +278,7 @@ def _description(artifact_type: ArtifactType, relative_path: Path | None = None)
 
 
 def _format_for_artifact_type(artifact_type: ArtifactType) -> ExportFormat:
-    if artifact_type in {"point_cloud_ply", "splat_ply"}:
+    if artifact_type in {"debug_frame_cloud_ply", "point_cloud_ply", "splat_ply"}:
         return "ply"
     if artifact_type == "mesh_glb":
         return "glb"

@@ -83,6 +83,61 @@ def test_worker_runs_reconstruction_spike_job(tmp_path) -> None:
     assert (tmp_path / project.id / "metadata" / "reconstruction_spike.json").is_file()
 
 
+def test_worker_runs_debug_frame_cloud_job(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Frame cloud")
+    project_dir = tmp_path / project.id
+    _write_frames(project_dir / "frames", count=5)
+    _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=5)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "debug_frame_cloud", {"max_points": 120})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "succeeded"
+    assert completed.result is not None
+    assert completed.result["artifact_type"] == "debug_frame_cloud_ply"
+    assert completed.result["mode"] == "debug"
+    assert completed.result["not_reconstruction"] is True
+    assert completed.result["sampled_points"] <= 120
+    ply_path = project_dir / "reconstruction" / "debug-frame-room.ply"
+    metadata_path = project_dir / "metadata" / "debug_frame_cloud.json"
+    assert ply_path.is_file()
+    assert metadata_path.is_file()
+    assert "not a reconstruction" in ply_path.read_text(encoding="utf-8")
+
+
+def test_worker_rejects_debug_frame_cloud_without_extracted_frames(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("No frames")
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "debug_frame_cloud", {})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "failed"
+    assert completed.error == "No extracted frames metadata was found. Extract frames before creating a debug 3D preview."
+
+
+def test_worker_rejects_debug_frame_cloud_frames_dir_outside_project(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Frame cloud path safety")
+    project_dir = tmp_path / project.id
+    outside_frames = tmp_path / "outside"
+    _write_frames(outside_frames, count=2)
+    _write_frame_extraction_metadata(project_dir, frames_dir=str(outside_frames), count=2)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "debug_frame_cloud", {})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "failed"
+    assert completed.error == "Debug frame cloud path escaped the project directory."
+
+
 def test_worker_rejects_reconstruction_frames_dir_outside_project(tmp_path) -> None:
     project_store = ProjectStore(tmp_path)
     project = project_store.create_project("Spike path safety")
@@ -180,3 +235,19 @@ def _write_frames(frames_dir: Path, count: int) -> None:
     for index in range(count):
         frame = Image.new("RGB", (8, 6), (index * 20, index * 10, index * 5))
         frame.save(frames_dir / f"frame_{index + 1:06d}.png")
+
+
+def _write_frame_extraction_metadata(project_dir: Path, frames_dir: str, count: int) -> None:
+    payload = {
+        "project_id": project_dir.name,
+        "source_video": "input/tiny.gif",
+        "frames_dir": frames_dir,
+        "fps": 10.0,
+        "frame_count": count,
+        "extracted_frame_count": count,
+        "extraction_stride": 1,
+        "width": 8,
+        "height": 6,
+        "extracted_at": "2026-07-04T00:00:00+00:00",
+    }
+    (project_dir / "metadata" / "frame_extraction.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")

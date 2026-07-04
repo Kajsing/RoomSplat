@@ -1,101 +1,106 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import {
   Artifact,
   artifactUrl,
   createExport,
+  createJob,
   DEFAULT_BASE_URL,
   ExportFormat,
   ExportResult,
+  getFrameExtraction,
   Job,
   listArtifacts,
+  listJobs,
   Project,
 } from '../api'
-import { glbPreviewMessage, parseGlbInfo } from '../viewer/glbViewer'
-import { parseAsciiPly, PointCloud, renderPointCloud } from '../viewer/pointCloudViewer'
+import ThreeViewer from './ThreeViewer'
 
 type ViewerPanelProps = {
   project: Project | null
   activeJob: Job | null
+  onJobChange: (job: Job) => void
 }
 
-export default function ViewerPanel({ project, activeJob }: ViewerPanelProps) {
+export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerPanelProps) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null)
-  const [pointCloud, setPointCloud] = useState<PointCloud | null>(null)
   const [debugText, setDebugText] = useState<string | null>(null)
-  const [glbText, setGlbText] = useState<string | null>(null)
-  const [rotationY, setRotationY] = useState(25)
-  const [zoom, setZoom] = useState(1)
+  const [hasExtractedFrames, setHasExtractedFrames] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exportMessage, setExportMessage] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [isCreatingDebugPreview, setIsCreatingDebugPreview] = useState(false)
 
   useEffect(() => {
     if (!project) {
       setArtifacts([])
       setSelectedArtifactId(null)
+      setHasExtractedFrames(false)
       return
     }
-    refreshArtifacts(project.id)
+    refreshProjectViewerState(project.id)
   }, [project])
 
   useEffect(() => {
-    if (project && activeJob?.status === 'succeeded') {
-      refreshArtifacts(project.id)
+    if (!project || !activeJob) return
+    if (activeJob.status === 'succeeded') {
+      refreshProjectViewerState(project.id)
     }
   }, [activeJob?.status, project])
 
   const selectedArtifact = artifacts.find((artifact) => artifact.id === selectedArtifactId) ?? null
+  const isThreeArtifact =
+    selectedArtifact?.artifact_type === 'debug_frame_cloud_ply' ||
+    selectedArtifact?.artifact_type === 'point_cloud_ply' ||
+    selectedArtifact?.artifact_type === 'splat_ply' ||
+    selectedArtifact?.artifact_type === 'mesh_glb'
 
   useEffect(() => {
-    setPointCloud(null)
     setDebugText(null)
-    setGlbText(null)
     setError(null)
-    if (!selectedArtifact) return
+    if (!selectedArtifact || selectedArtifact.artifact_type !== 'debug_report') return
 
-    if (selectedArtifact.artifact_type === 'point_cloud_ply' || selectedArtifact.artifact_type === 'splat_ply') {
-      fetch(artifactUrl(selectedArtifact))
-        .then((response) => {
-          if (!response.ok) throw new Error('Could not load PLY artifact')
-          return response.text()
-        })
-        .then((text) => setPointCloud(parseAsciiPly(text)))
-        .catch((reason: Error) => setError(reason.message))
-    } else if (selectedArtifact.artifact_type === 'debug_report') {
-      fetch(artifactUrl(selectedArtifact))
-        .then((response) => {
-          if (!response.ok) throw new Error('Could not load debug report')
-          return response.text()
-        })
-        .then((text) => setDebugText(text))
-        .catch((reason: Error) => setError(reason.message))
-    } else if (selectedArtifact.artifact_type === 'mesh_glb') {
-      fetch(artifactUrl(selectedArtifact))
-        .then((response) => {
-          if (!response.ok) throw new Error('Could not load GLB artifact')
-          return response.arrayBuffer()
-        })
-        .then((buffer) => setGlbText(glbPreviewMessage(parseGlbInfo(buffer))))
-        .catch((reason: Error) => setError(reason.message))
-    }
+    fetch(artifactUrl(selectedArtifact))
+      .then((response) => {
+        if (!response.ok) throw new Error('Could not load debug report')
+        return response.text()
+      })
+      .then((text) => setDebugText(text))
+      .catch((reason: Error) => setError(reason.message))
   }, [selectedArtifact])
 
-  useEffect(() => {
-    if (!pointCloud || !canvasRef.current) return
-    renderPointCloud(canvasRef.current, pointCloud, { rotationY, zoom })
-  }, [pointCloud, rotationY, zoom])
-
-  function refreshArtifacts(projectId: string) {
+  function refreshProjectViewerState(projectId: string) {
     setError(null)
-    listArtifacts(projectId)
-      .then((loadedArtifacts) => {
+    Promise.all([listArtifacts(projectId), listJobs(projectId), getFrameExtraction(projectId).then(() => true).catch(() => false)])
+      .then(([loadedArtifacts, jobs, hasFrameMetadata]) => {
         setArtifacts(loadedArtifacts)
-        setSelectedArtifactId((currentId) => currentId ?? loadedArtifacts[0]?.id ?? null)
+        setSelectedArtifactId((currentId) => {
+          if (currentId && loadedArtifacts.some((artifact) => artifact.id === currentId)) return currentId
+          return loadedArtifacts.find((artifact) => artifact.artifact_type === 'debug_frame_cloud_ply')?.id ?? loadedArtifacts[0]?.id ?? null
+        })
+        setHasExtractedFrames(
+          hasFrameMetadata ||
+          jobs.some((job) => job.job_type === 'frame_extraction' && job.status === 'succeeded') ||
+            (activeJob?.job_type === 'frame_extraction' && activeJob.status === 'succeeded'),
+        )
       })
       .catch((reason: Error) => setError(reason.message))
+  }
+
+  async function handleCreateDebugPreview() {
+    if (!project) return
+    setError(null)
+    setExportMessage(null)
+    setIsCreatingDebugPreview(true)
+    try {
+      const job = await createJob(project.id, 'debug_frame_cloud', {})
+      onJobChange(job)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not create debug 3D preview job')
+    } finally {
+      setIsCreatingDebugPreview(false)
+    }
   }
 
   async function handleExport(format: ExportFormat, allowPlaceholder = false) {
@@ -124,11 +129,22 @@ export default function ViewerPanel({ project, activeJob }: ViewerPanelProps) {
           <h2 style={headingStyle}>Viewer</h2>
           <p style={mutedStyle}>{project ? project.name : 'Select a project'}</p>
         </div>
-        <button disabled={!project} onClick={() => project && refreshArtifacts(project.id)} style={secondaryButtonStyle} type="button">
-          Refresh
-        </button>
+        <div style={headerActionsStyle}>
+          <button
+            disabled={!project || !hasExtractedFrames || isCreatingDebugPreview}
+            onClick={handleCreateDebugPreview}
+            style={secondaryButtonStyle}
+            type="button"
+          >
+            Create debug 3D preview
+          </button>
+          <button disabled={!project} onClick={() => project && refreshProjectViewerState(project.id)} style={secondaryButtonStyle} type="button">
+            Refresh
+          </button>
+        </div>
       </div>
 
+      {project && !hasExtractedFrames ? <p style={mutedStyle}>Extract frames before creating a Frame Room Cloud preview.</p> : null}
       {artifacts.length === 0 ? <p style={mutedStyle}>No result artifacts yet.</p> : null}
 
       {artifacts.length > 0 ? (
@@ -185,39 +201,7 @@ export default function ViewerPanel({ project, activeJob }: ViewerPanelProps) {
                   {exportMessage ? <span style={successStyle}>{exportMessage}</span> : null}
                 </div>
 
-                {selectedArtifact.artifact_type === 'point_cloud_ply' || selectedArtifact.artifact_type === 'splat_ply' ? (
-                  <div style={canvasWrapStyle}>
-                    <canvas ref={canvasRef} width={720} height={420} style={canvasStyle} />
-                    <div style={controlsStyle}>
-                      <label>
-                        Rotate
-                        <input
-                          max={180}
-                          min={-180}
-                          onChange={(event) => setRotationY(Number(event.target.value))}
-                          type="range"
-                          value={rotationY}
-                        />
-                      </label>
-                      <label>
-                        Zoom
-                        <input
-                          max={3}
-                          min={0.3}
-                          onChange={(event) => setZoom(Number(event.target.value))}
-                          step={0.1}
-                          type="range"
-                          value={zoom}
-                        />
-                      </label>
-                    </div>
-                    {selectedArtifact.artifact_type === 'splat_ply' ? (
-                      <p style={mutedStyle}>Displayed as a debug point preview; splat shading is not simulated here.</p>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {selectedArtifact.artifact_type === 'mesh_glb' && glbText ? <p style={mutedStyle}>{glbText}</p> : null}
+                {isThreeArtifact ? <ThreeViewer artifact={selectedArtifact} sourceUrl={artifactUrl(selectedArtifact)} /> : null}
                 {selectedArtifact.artifact_type === 'debug_report' && debugText ? <pre style={preStyle}>{debugText}</pre> : null}
               </>
             ) : null}
@@ -239,6 +223,7 @@ function formatExportMessage(result: ExportResult) {
 
 function formatArtifactType(type: Artifact['artifact_type']) {
   const labels = {
+    debug_frame_cloud_ply: 'Frame Room Cloud',
     point_cloud_ply: 'Point cloud PLY',
     splat_ply: 'Splat PLY',
     mesh_glb: 'GLB',
@@ -252,7 +237,7 @@ const sectionStyle = {
   border: '1px solid #d0d7de',
   borderRadius: 8,
   padding: 20,
-  maxWidth: 1000,
+  maxWidth: 1120,
 } satisfies CSSProperties
 
 const headerStyle = {
@@ -260,6 +245,13 @@ const headerStyle = {
   display: 'flex',
   gap: 16,
   justifyContent: 'space-between',
+} satisfies CSSProperties
+
+const headerActionsStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  justifyContent: 'flex-end',
 } satisfies CSSProperties
 
 const headingStyle = {
@@ -311,25 +303,6 @@ const artifactHeaderStyle = {
   display: 'grid',
   gap: 4,
   marginBottom: 12,
-} satisfies CSSProperties
-
-const canvasWrapStyle = {
-  display: 'grid',
-  gap: 12,
-} satisfies CSSProperties
-
-const canvasStyle = {
-  aspectRatio: '12 / 7',
-  border: '1px solid #d0d7de',
-  borderRadius: 6,
-  maxWidth: '100%',
-  width: '100%',
-} satisfies CSSProperties
-
-const controlsStyle = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: 16,
 } satisfies CSSProperties
 
 const exportControlsStyle = {

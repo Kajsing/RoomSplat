@@ -8,6 +8,7 @@ project-root/
     project.json
     video_import.json
     frame_extraction.json
+    debug_frame_cloud.json
     reconstruction_spike.json
     exports/
       <export-id>.json
@@ -22,6 +23,7 @@ project-root/
   reconstruction/
     metadata.json
     cameras.json
+    debug-frame-room.ply
     splat.ply
     pointcloud.ply
     scene.glb
@@ -32,6 +34,7 @@ project-root/
 
 ## Artifact labels
 
+- `debug-frame-room.ply` is labeled `debug_frame_cloud_ply`. It is a deterministic viewer/debug point cloud sampled from extracted frames and must not be labeled as reconstruction.
 - `pointcloud.ply` is a conventional point cloud if produced by the selected pipeline.
 - `splat.ply` is Gaussian splat data and must not be labeled as a conventional point cloud.
 - `scene.glb` / `result.glb` are portable scene exports when a conversion path exists.
@@ -57,6 +60,7 @@ project-root/
 - Project folders are created under the configured data directory and named by project ID.
 - Project metadata records source video and frame extraction settings.
 - `reconstruction_spike.json` records adapter readiness and selected interim reconstruction path when the spike is run.
+- `debug_frame_cloud.json` records Frame Room Cloud metadata, including `mode: debug` and `not_reconstruction: true`.
 - Job metadata records queued/running/succeeded/failed status, params, result, error, timestamps, and log path.
 - All paths must stay inside the configured data directory.
 - Artifact listing and downloads must resolve paths inside the project folder; escaped symlinks are not valid artifacts.

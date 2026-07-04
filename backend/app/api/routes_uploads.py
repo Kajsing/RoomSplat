@@ -1,9 +1,11 @@
+import json
+
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.config import get_config
 from app.models.schemas import FrameExtractionRequest, FrameExtractionResponse, VideoImportResponse
 from app.services.frame_extraction import FrameExtractionError, FrameExtractionService
-from app.services.project_store import ProjectStore
+from app.services.project_store import ProjectStore, ProjectStoreError
 from app.services.video_import import VideoImportError, VideoImportService
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["video import"])
@@ -49,6 +51,27 @@ def extract_frames(project_id: str, request: FrameExtractionRequest) -> FrameExt
         )
     except FrameExtractionError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/frames/extraction", response_model=FrameExtractionResponse)
+def get_frame_extraction(project_id: str) -> FrameExtractionResponse:
+    try:
+        project_dir = get_project_store().get_project_dir(project_id)
+    except ProjectStoreError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    metadata_path = (project_dir / "metadata" / "frame_extraction.json").resolve()
+    try:
+        metadata_path.relative_to(project_dir.resolve())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Frame extraction metadata path escaped the project directory.") from exc
+    if not metadata_path.is_file():
+        raise HTTPException(status_code=404, detail="No extracted frames metadata was found.")
+
+    try:
+        return FrameExtractionResponse.model_validate(json.loads(metadata_path.read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Frame extraction metadata is invalid.") from exc
 
 
 async def _read_limited_body(request: Request, max_bytes: int) -> bytes:

@@ -18,13 +18,16 @@ npm --prefix frontend run build
 5. Verify `metadata/video_import.json`, `metadata/frame_extraction.json`, `metadata/jobs/<job-id>.json`, `metadata/jobs/<job-id>.log`, and `frames/frame_*.png`.
 6. Create a reconstruction-spike job.
 7. Verify `metadata/reconstruction_spike.json` records dependency readiness and output contracts.
-8. List artifacts through `GET /projects/{project_id}/artifacts`.
-9. Load supported artifacts in the viewer or show explicit debug/unsupported states.
-10. Create exports through `POST /projects/{project_id}/exports`.
-11. Verify `metadata/exports/<export-id>.json` records source artifact, format, generated time, artifact label, and `real`/`placeholder` status.
-12. Download the exported file through the artifact download URL.
-13. Confirm the backend is bound to `127.0.0.1` for local v1 use.
-14. Confirm generated data remains ignored by Git.
+8. Create a debug-frame-cloud job.
+9. Verify `reconstruction/debug-frame-room.ply` and `metadata/debug_frame_cloud.json` exist and are marked debug/not reconstruction.
+10. List artifacts through `GET /projects/{project_id}/artifacts`.
+11. Load supported artifacts in the viewer or show explicit debug/unsupported states.
+12. Verify the Three.js canvas is nonblank for `debug_frame_cloud_ply` and that debug report artifact switching still works.
+13. Create exports through `POST /projects/{project_id}/exports`.
+14. Verify `metadata/exports/<export-id>.json` records source artifact, format, generated time, artifact label, and `real`/`placeholder` status.
+15. Download the exported file through the artifact download URL.
+16. Confirm the backend is bound to `127.0.0.1` for local v1 use.
+17. Confirm generated data remains ignored by Git.
 
 ## Validation principle
 
