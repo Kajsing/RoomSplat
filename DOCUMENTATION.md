@@ -2,12 +2,12 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented.
-Current milestone: Milestone 5 - Job system for long-running reconstruction.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented.
+Current milestone: Milestone 6 - Viewer integration.
 
 ## Latest completed milestone
 
-Milestone 4 - Adapter-first reconstruction spike.
+Milestone 5 - Job system for long-running reconstruction.
 
 ## How to run
 
@@ -49,7 +49,7 @@ npm --prefix frontend run build
 
 - Frontend validation used bundled `pnpm` because `npm` is not available on PATH in this shell.
 - Frame extraction tests use deterministic animated GIF fixtures; general video formats require `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
-- Frame extraction is synchronous until the Milestone 5 job system exists.
+- Synchronous frame extraction API still exists for compatibility, but the UI now starts frame extraction through jobs.
 - No real reconstruction training is integrated yet; Milestone 4 selects an interim path and reports dependency readiness.
 - Local reconstruction dependencies are not installed in the current shell: `pycolmap`, `nerfstudio`, `gsplat`, `torch`, `open3d`, `colmap`, `ns-process-data`, and `ns-train` are unavailable.
 - Windows-native Nerfstudio/gsplat setup may be fragile due to CUDA, PyTorch, and Visual Studio Build Tools requirements.
@@ -72,10 +72,25 @@ npm --prefix frontend run build
 - `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 17 tests
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe pipeline\scripts\run_reconstruction_spike.py --help` - passed
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 4
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 23 tests
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after Milestone 5
 
 ## Next step
 
-Start Milestone 5: add local background jobs for extraction and reconstruction orchestration. The job system should call adapter names/contracts rather than hard-coding Nerfstudio commands into the API.
+Start Milestone 6: integrate the browser viewer for result artifacts. Since real splats are not produced yet, viewer work should start with clearly labeled placeholder/debug artifacts or existing `.ply`/`.glb` contracts and avoid pretending spike reports are reconstructions.
+
+## Milestone 5 notes
+
+- Added durable job metadata under `metadata/jobs/<job-id>.json`.
+- Added per-job logs under `metadata/jobs/<job-id>.log`.
+- Added job statuses: `queued`, `running`, `succeeded`, `failed`.
+- Added job types: `frame_extraction` and `reconstruction_spike`.
+- Added `POST /projects/{project_id}/jobs`, `GET /projects/{project_id}/jobs`, and `GET /projects/{project_id}/jobs/{job_id}`.
+- Added a local thread-pool worker for background execution.
+- Frame extraction jobs call the existing `FrameExtractionService`.
+- Reconstruction-spike jobs call the adapter-first spike and write `metadata/reconstruction_spike.json`.
+- Failed jobs preserve error messages and log entries.
+- Frontend now starts frame extraction as a job, polls active job status, lists recent jobs, and can start a reconstruction-spike job.
 
 ## Milestone 4 notes
 

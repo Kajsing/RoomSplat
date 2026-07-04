@@ -42,8 +42,30 @@ export type FrameExtractionOptions = {
   max_frames?: number
 }
 
+export type JobType = 'frame_extraction' | 'reconstruction_spike'
+export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed'
+
+export type Job = {
+  id: string
+  project_id: string
+  job_type: JobType
+  status: JobStatus
+  params: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  started_at: string | null
+  finished_at: string | null
+  result: Record<string, unknown> | null
+  error: string | null
+  log_path: string
+}
+
 type ProjectListResponse = {
   projects: Project[]
+}
+
+type JobListResponse = {
+  jobs: Job[]
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -87,6 +109,23 @@ export async function extractFrames(projectId: string, options: FrameExtractionO
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(options),
   })
+}
+
+export async function createJob(projectId: string, jobType: JobType, params: Record<string, unknown>, baseUrl = DEFAULT_BASE_URL) {
+  return requestJson<Job>(`${baseUrl}/projects/${projectId}/jobs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job_type: jobType, params }),
+  })
+}
+
+export async function getJob(projectId: string, jobId: string, baseUrl = DEFAULT_BASE_URL) {
+  return requestJson<Job>(`${baseUrl}/projects/${projectId}/jobs/${jobId}`)
+}
+
+export async function listJobs(projectId: string, baseUrl = DEFAULT_BASE_URL) {
+  const response = await requestJson<JobListResponse>(`${baseUrl}/projects/${projectId}/jobs`)
+  return response.jobs
 }
 
 function readErrorMessage(text: string) {

@@ -10,11 +10,12 @@ The first version focuses on the local engine: import a video, extract frames, r
 - Local project storage with `GET /projects` and `POST /projects`.
 - Video upload into project `input/` folders.
 - Deterministic frame extraction into project `frames/` folders.
-- Vite + React frontend displaying backend health, create/list projects, video upload, and extraction status.
+- Local background jobs for frame extraction and reconstruction-spike orchestration.
+- Vite + React frontend displaying backend health, create/list projects, video upload, and job status.
 
 ## What it does not do yet
 
-- No real Gaussian Splatting / NeRF pipeline has been selected or integrated yet.
+- No real Gaussian Splatting / NeRF training is integrated yet; the current reconstruction path is a dependency/readiness spike.
 - General MP4/MOV extraction requires `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - No live phone/webcam streaming yet.
 - No native Android app.

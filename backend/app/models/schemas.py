@@ -1,3 +1,5 @@
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -49,3 +51,31 @@ class FrameExtractionResponse(BaseModel):
     width: int
     height: int
     extracted_at: str
+
+
+JobType = Literal["frame_extraction", "reconstruction_spike"]
+JobStatus = Literal["queued", "running", "succeeded", "failed"]
+
+
+class JobCreateRequest(BaseModel):
+    job_type: JobType
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class JobResponse(BaseModel):
+    id: str
+    project_id: str
+    job_type: JobType
+    status: JobStatus
+    params: dict[str, Any]
+    created_at: str
+    updated_at: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    log_path: str
+
+
+class JobListResponse(BaseModel):
+    jobs: list[JobResponse]

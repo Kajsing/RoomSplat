@@ -9,6 +9,9 @@ project-root/
     video_import.json
     frame_extraction.json
     reconstruction_spike.json
+    jobs/
+      <job-id>.json
+      <job-id>.log
   input/
     source videos
   frames/
@@ -35,7 +38,7 @@ project-root/
 
 - Keep generated videos, frames, models, splats, checkpoints, and exports out of Git.
 - Project folders are created under the configured data directory and named by project ID.
-- Project metadata records source video and frame extraction settings before reconstruction jobs exist.
+- Project metadata records source video and frame extraction settings.
 - `reconstruction_spike.json` records adapter readiness and selected interim reconstruction path when the spike is run.
-- Future job metadata should record job status and artifact types.
+- Job metadata records queued/running/succeeded/failed status, params, result, error, timestamps, and log path.
 - All paths must stay inside the configured data directory.

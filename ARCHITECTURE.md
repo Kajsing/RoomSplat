@@ -102,10 +102,12 @@ Each project gets its own folder. The backend is the only layer that should writ
 1. User creates project.
 2. User imports video.
 3. Backend copies video into project `input/`.
-4. Frame extraction creates images in `frames/` and writes metadata.
-5. Reconstruction job consumes frames and produces artifacts in `reconstruction/`.
-6. Export service creates user-facing files in `exports/`.
-7. Frontend displays artifacts through browser viewer or download links.
+4. Backend creates a local job under `metadata/jobs/`.
+5. Local worker runs frame extraction, creates images in `frames/`, and writes metadata.
+6. Reconstruction-spike job consumes frames and writes dependency/output-contract guidance.
+7. Future reconstruction job consumes frames and produces artifacts in `reconstruction/`.
+8. Export service creates user-facing files in `exports/`.
+9. Frontend displays artifacts through browser viewer or download links.
 
 ## Error handling
 

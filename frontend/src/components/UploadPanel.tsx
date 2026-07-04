@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
-import { extractFrames, FrameExtraction, Project, uploadVideo, VideoImport } from '../api'
+import { createJob, Job, Project, uploadVideo, VideoImport } from '../api'
 
 type UploadPanelProps = {
   project: Project | null
+  onJobChange: (job: Job) => void
 }
 
-export default function UploadPanel({ project }: UploadPanelProps) {
+export default function UploadPanel({ project, onJobChange }: UploadPanelProps) {
   const [file, setFile] = useState<File | null>(null)
   const [stride, setStride] = useState(1)
   const [maxFrames, setMaxFrames] = useState('')
   const [importedVideo, setImportedVideo] = useState<VideoImport | null>(null)
-  const [extraction, setExtraction] = useState<FrameExtraction | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [isExtracting, setIsExtracting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +21,6 @@ export default function UploadPanel({ project }: UploadPanelProps) {
     if (!project || !file) return
     setError(null)
     setIsUploading(true)
-    setExtraction(null)
 
     try {
       const result = await uploadVideo(project.id, file)
@@ -39,14 +38,14 @@ export default function UploadPanel({ project }: UploadPanelProps) {
     setIsExtracting(true)
 
     try {
-      const result = await extractFrames(project.id, {
+      const job = await createJob(project.id, 'frame_extraction', {
         source_video: importedVideo.source_video,
         stride,
         max_frames: maxFrames ? Number(maxFrames) : undefined,
       })
-      setExtraction(result)
+      onJobChange(job)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Frame extraction failed')
+      setError(reason instanceof Error ? reason.message : 'Frame extraction job failed to start')
     } finally {
       setIsExtracting(false)
     }
@@ -111,27 +110,6 @@ export default function UploadPanel({ project }: UploadPanelProps) {
           {isExtracting ? 'Extracting...' : 'Extract frames'}
         </button>
       </div>
-
-      {extraction ? (
-        <dl style={metadataStyle}>
-          <div>
-            <dt>Frames</dt>
-            <dd>
-              {extraction.extracted_frame_count} of {extraction.frame_count}
-            </dd>
-          </div>
-          <div>
-            <dt>Resolution</dt>
-            <dd>
-              {extraction.width} x {extraction.height}
-            </dd>
-          </div>
-          <div>
-            <dt>FPS</dt>
-            <dd>{extraction.fps.toFixed(2)}</dd>
-          </div>
-        </dl>
-      ) : null}
 
       {error ? <p style={errorStyle}>{error}</p> : null}
     </section>
@@ -213,13 +191,6 @@ const numberInputStyle = {
   padding: '9px 10px',
   border: '1px solid #d0d7de',
   borderRadius: 6,
-} satisfies CSSProperties
-
-const metadataStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-  gap: 12,
-  margin: 0,
 } satisfies CSSProperties
 
 const errorStyle = {
