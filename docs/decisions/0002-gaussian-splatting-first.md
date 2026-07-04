@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted as project direction; interim adapter-first path selected by Milestone 4 spike.
+Accepted as project direction; first local splat adapter selected and wired through `reconstruct_splat`.
 
 ## Context
 
@@ -12,13 +12,15 @@ The project owner selected Gaussian Splatting / NeRF-style reconstruction over a
 
 Pursue Gaussian Splatting / NeRF first through an adapter boundary rather than binding the app directly to one experimental tool.
 
-The selected interim path is:
+The selected first local training path is:
 
 ```text
-frames -> COLMAP/pycolmap camera poses -> Nerfstudio Splatfacto -> splat.ply
+frames -> Nerfstudio ns-process-data images -> ns-train splatfacto -> ns-export gaussian-splat -> reconstruction/splat.ply
 ```
 
 This is an interim path, not a permanent product lock-in. The backend, job system, metadata, and UI should depend on artifact contracts such as `camera_poses`, `point_cloud_ply`, and `splat_ply`, not on Nerfstudio-specific command details.
+
+The adapter may later reuse existing COLMAP outputs directly if that path proves stable, but the first implementation follows the official Nerfstudio custom-data flow because `ns-process-data` prepares image folders into Nerfstudio-compatible data and Splatfacto can initialize from COLMAP data produced by that flow.
 
 `gsplat` remains the lower-level adapter boundary for future faster custom, learned, or generative splat approaches. Open3D remains optional debug tooling for conventional point clouds and should not be treated as a Gaussian Splatting trainer.
 
@@ -26,6 +28,8 @@ Primary references checked during the spike:
 
 - Nerfstudio Windows install notes: https://docs.nerf.studio/quickstart/installation.html
 - Nerfstudio Splatfacto method notes: https://docs.nerf.studio/nerfology/methods/splat.html
+- Nerfstudio custom data processing: https://docs.nerf.studio/quickstart/custom_dataset.html
+- Nerfstudio ns-process-data CLI: https://docs.nerf.studio/reference/cli/ns_process_data.html
 - PyCOLMAP install docs: https://colmap.github.io/pycolmap/index.html
 - COLMAP overview: https://colmap.github.io/
 - gsplat Windows install notes: https://github.com/nerfstudio-project/gsplat/blob/main/docs/INSTALL_WIN.md
@@ -35,6 +39,7 @@ Primary references checked during the spike:
 
 - The pipeline must honestly distinguish Gaussian splat data from conventional point clouds and meshes.
 - Milestone 4 does not install heavy dependencies by default; it validates frames, reports dependency readiness, and records stop-condition guidance.
+- Real Splat Pipeline Adapter v1 adds the `reconstruct_splat` job. Missing dependencies write readiness metadata and do not create placeholder splat geometry.
 - Windows-native Nerfstudio/gsplat remains fragile because of CUDA, PyTorch, Visual Studio Build Tools, and compiler environment requirements.
 - PyCOLMAP has pre-built Windows wheels and is the preferred first pose-estimation dependency to test.
 - The app must not pretend placeholder outputs are real reconstructions.

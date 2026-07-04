@@ -285,12 +285,14 @@ def _artifact_sort_key(artifact: ArtifactResponse) -> tuple[int, str]:
     is_placeholder = relative_path.parent.name == "exports" and name.startswith("placeholder-")
     if is_placeholder:
         return (90, artifact.relative_path)
-    if artifact.relative_path == "reconstruction/sparse-point-cloud.ply":
+    if artifact.relative_path == "reconstruction/splat.ply":
         return (0, artifact.relative_path)
+    if artifact.relative_path == "reconstruction/sparse-point-cloud.ply":
+        return (10, artifact.relative_path)
     ranks = {
-        "point_cloud_ply": 10,
         "splat_ply": 20,
-        "mesh_glb": 30,
+        "point_cloud_ply": 30,
+        "mesh_glb": 40,
         "debug_frame_cloud_ply": 60,
         "debug_report": 70,
         "unsupported": 100,

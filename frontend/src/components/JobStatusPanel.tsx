@@ -4,6 +4,7 @@ import { createJob, getJob, Job, listJobs, Project } from '../api'
 
 type ReconstructionPreset = 'quick' | 'balanced' | 'detail'
 type ReconstructionMatcher = 'exhaustive' | 'sequential'
+type SplatMethod = 'splatfacto' | 'splatfacto-big'
 
 type JobStatusPanelProps = {
   project: Project | null
@@ -16,6 +17,8 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
   const [preset, setPreset] = useState<ReconstructionPreset>('balanced')
   const [matcher, setMatcher] = useState<ReconstructionMatcher>('exhaustive')
   const [useGpu, setUseGpu] = useState(false)
+  const [splatMethod, setSplatMethod] = useState<SplatMethod>('splatfacto')
+  const [splatMaxIterations, setSplatMaxIterations] = useState('3000')
   const [isStarting, setIsStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,6 +75,22 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
     }
   }
 
+  async function handleSplatReconstruction() {
+    if (!project) return
+    setError(null)
+    setIsStarting(true)
+    try {
+      const maxIterations = splatMaxIterations.trim() ? Number(splatMaxIterations) : undefined
+      const job = await createJob(project.id, 'reconstruct_splat', { method: splatMethod, max_iterations: maxIterations })
+      onJobChange(job)
+      setJobs((currentJobs) => upsertJob(currentJobs, job))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not start splat reconstruction')
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
   return (
     <section style={sectionStyle}>
       <div>
@@ -83,9 +102,33 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
         <button disabled={!project || isStarting} onClick={handlePointCloudReconstruction} style={buttonStyle} type="button">
           {isStarting ? 'Starting...' : 'Run point cloud reconstruction'}
         </button>
+        <button disabled={!project || isStarting} onClick={handleSplatReconstruction} style={buttonStyle} type="button">
+          {isStarting ? 'Starting...' : 'Run splat reconstruction'}
+        </button>
         <button disabled={!project || isStarting} onClick={handleReconstructionSpike} style={secondaryButtonStyle} type="button">
           Run reconstruction spike
         </button>
+      </div>
+
+      <div style={optionsStyle}>
+        <label style={inputLabelStyle}>
+          Splat method
+          <select onChange={(event) => setSplatMethod(event.target.value as SplatMethod)} style={selectStyle} value={splatMethod}>
+            <option value="splatfacto">Splatfacto</option>
+            <option value="splatfacto-big">Splatfacto big</option>
+          </select>
+        </label>
+        <label style={inputLabelStyle}>
+          Max iterations
+          <input
+            min={1}
+            onChange={(event) => setSplatMaxIterations(event.target.value)}
+            style={numberInputStyle}
+            type="number"
+            value={splatMaxIterations}
+          />
+        </label>
+        <span style={hintStyle}>Uses Nerfstudio when installed; otherwise writes a local readiness diagnosis.</span>
       </div>
 
       <div style={optionsStyle}>
@@ -150,6 +193,7 @@ function formatJobType(jobType: Job['job_type']) {
     reconstruction_spike: 'Reconstruction spike',
     debug_frame_cloud: 'Debug 3D preview',
     reconstruct_point_cloud: 'Point cloud reconstruction',
+    reconstruct_splat: 'Splat reconstruction',
   }
   return labels[jobType]
 }
@@ -166,6 +210,12 @@ function summarizeResult(job: Job) {
     return `${job.result?.ply_point_count ?? '?'} points, ${job.result?.registered_frame_count ?? '?'} registered frames${
       preset ? `, ${preset} preset` : ''
     }`
+  }
+  if (job.job_type === 'reconstruct_splat') {
+    if (job.result?.output_path) return `splat ready: ${job.result.output_path}`
+    const status = String(job.result?.status ?? 'pending')
+    const warning = typeof job.result?.warning === 'string' ? `: ${job.result.warning}` : ''
+    return `${status}${warning}`
   }
   return String(job.result?.status ?? 'report ready')
 }
@@ -239,6 +289,14 @@ const selectStyle = {
   border: '1px solid #d0d7de',
   borderRadius: 6,
   color: '#24292f',
+  padding: '7px 8px',
+} satisfies CSSProperties
+
+const numberInputStyle = {
+  border: '1px solid #d0d7de',
+  borderRadius: 6,
+  color: '#24292f',
+  maxWidth: 130,
   padding: '7px 8px',
 } satisfies CSSProperties
 

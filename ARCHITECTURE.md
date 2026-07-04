@@ -86,13 +86,13 @@ AdapterAssessment
   next setup steps
 ```
 
-The interim path is:
+The current real splat path is:
 
 ```text
-frames -> COLMAP/pycolmap poses -> Nerfstudio Splatfacto -> splat.ply
+frames -> Nerfstudio ns-process-data images -> ns-train splatfacto -> ns-export gaussian-splat -> reconstruction/splat.ply
 ```
 
-Future learned or generative splat methods should fit behind the same boundary by consuming frames and/or poses and emitting the same `splat_ply` artifact contract.
+`reconstruct_splat` records readiness metadata even when training cannot run locally. Future learned or generative splat methods should fit behind the same boundary by consuming frames and/or poses and emitting the same `splat_ply` artifact contract.
 
 ### Project storage
 
@@ -130,6 +130,15 @@ Expected future real splat artifact contract:
 - Metadata should identify the reconstruction adapter, source frames/poses, generated time, and whether the artifact is a real reconstruction.
 - The frontend attempts GaussianSplats3D rendering first for `splat_ply`; if parsing fails, it displays a point-cloud fallback with diagnostics rather than changing the backend label.
 
+Current `reconstruct_splat` behavior:
+
+- Uses the Nerfstudio/Splatfacto adapter.
+- Reads extracted frames from the project.
+- Writes `metadata/splat_reconstruction.json`.
+- If `ns-process-data`, `ns-train`, or `ns-export` is missing, returns `status: blocked_missing_dependencies`, `is_reconstruction: false`, `output_path: null`, and does not create placeholder geometry.
+- If dependencies are ready, runs local Nerfstudio commands and writes `reconstruction/splat.ply`.
+- Sorts a real `splat_ply` artifact above sparse point clouds in the viewer artifact list.
+
 ### Export boundary
 
 The export service creates user-facing files in `exports/` from backend-listed artifacts and writes metadata in `metadata/exports/`.
@@ -151,7 +160,7 @@ Current export behavior:
 6. Optional debug-frame-cloud job consumes `metadata/frame_extraction.json` and `frames/`, then writes `reconstruction/debug-frame-room.ply` and `metadata/debug_frame_cloud.json`.
 7. Reconstruction-spike job consumes frames and writes dependency/output-contract guidance.
 8. Real sparse point-cloud reconstruction consumes frames through local COLMAP and writes `reconstruction/sparse-point-cloud.ply` plus `metadata/reconstruction.json`, including parsed `cameras.txt`, `images.txt`, and `points3D.txt` summary data.
-9. Future splat reconstruction consumes frames/poses and produces splat artifacts in `reconstruction/`.
+9. Splat reconstruction consumes frames through the Nerfstudio adapter, writes readiness/result metadata, and produces `reconstruction/splat.ply` when dependencies are installed.
 10. Artifact service labels reconstruction/export/debug files.
 11. Export service creates user-facing files in `exports/`.
 12. Frontend displays artifacts through browser viewer states or download links.

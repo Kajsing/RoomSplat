@@ -2,13 +2,13 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented.
-Current milestone: Reconstruction Quality + Camera Path v1 complete.
-Next planned milestone: real Gaussian Splatting reconstruction/training adapter.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented.
+Current milestone: Real Splat Pipeline Exploration + First Local Splat Adapter v1 complete.
+Next planned milestone: install/verify Nerfstudio environment and run first successful `splat.ply` training.
 
 ## Latest completed milestone
 
-Reconstruction Quality + Camera Path v1.
+Real Splat Pipeline Exploration + First Local Splat Adapter v1.
 
 ## How to run
 
@@ -54,6 +54,7 @@ npm --prefix frontend run build
 - No real reconstruction training is integrated yet; Milestone 4 selects an interim path and reports dependency readiness.
 - Real sparse point-cloud reconstruction is being integrated through local COLMAP; it requires `colmap.exe` on PATH or `ROOMSPLAT_COLMAP_PATH`.
 - Local reconstruction dependencies are not installed in the current shell: `pycolmap`, `nerfstudio`, `gsplat`, `torch`, `open3d`, `colmap`, `ns-process-data`, and `ns-train` are unavailable.
+- Real splat training adapter exists, but current machine/runtime is blocked by missing `ns-process-data`, `ns-train`, `ns-export`, `torch`, `nerfstudio`, and `gsplat`.
 - `colmap.exe` is not on PATH in this shell; browser smoke used local ignored COLMAP 4.1.0 no-CUDA binaries under `data/tools/` via `ROOMSPLAT_COLMAP_PATH`.
 - Windows-native Nerfstudio/gsplat setup may be fragile due to CUDA, PyTorch, and Visual Studio Build Tools requirements.
 - `.ply` may mean point cloud or splat data depending on pipeline stage; UI must label this.
@@ -114,6 +115,22 @@ npm --prefix frontend run build
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 4 frontend helper tests for final Usable 3D Viewer validation
 - `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed for final Usable 3D Viewer validation with chunk-size warning
 - `pnpm dlx npm@latest --prefix frontend audit --audit-level=moderate` - passed, 0 vulnerabilities
+- Local readiness checks for Real Splat Pipeline Adapter v1:
+  - `nvidia-smi` found NVIDIA GeForce RTX 3080 Ti
+  - `nvcc` not found
+  - `ns-process-data`, `ns-train`, `ns-export` not found
+  - backend Python 3.12.13
+  - `torch`, `nerfstudio`, `gsplat`, `pycolmap`, `open3d` missing from backend Python runtime
+- Direct `SplatReconstructionService.reconstruct_splat` readiness checks for cup/chair/shoe - passed as blocked diagnostics with no fake `splat.ply`
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest pipeline/tests/test_nerfstudio_splat_runner.py backend/tests/test_jobs.py backend/tests/test_artifacts.py` - passed, 40 tests after splat adapter changes
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 5 frontend helper tests after splat adapter UI changes
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed after splat adapter UI changes with chunk-size warning
+- Browser smoke at `http://127.0.0.1:5173` for Real Splat Pipeline Adapter v1 - passed after backend restart; UI created `reconstruct_splat`, showed `blocked_missing_dependencies`, did not show `[object Object]`, and did not list fake `splat.ply`
+- Filesystem check confirmed Objectron cup has `metadata/splat_reconstruction.json` with `status: blocked_missing_dependencies`, `is_reconstruction: false`, `not_reconstruction: true`, `output_path: null`, and no `reconstruction/splat.ply`
+- `$env:PYTHONPATH='backend'; C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed, 76 tests for final Real Splat Pipeline Adapter v1 validation
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --experimental-strip-types --test frontend\tests\*.test.ts` - passed, 5 frontend helper tests for final Real Splat Pipeline Adapter v1 validation
+- `C:\Users\ckajs\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules\vite\bin\vite.js build` from `frontend/` with bundled Node on PATH - passed for final Real Splat Pipeline Adapter v1 validation with chunk-size warning
+- `pnpm dlx npm@latest --prefix frontend audit --audit-level=moderate` - passed, 0 vulnerabilities
 - `git diff --check` - passed with line-ending warnings only
 - Direct `ReconstructionService.reconstruct_point_cloud` runs with local COLMAP 4.1.0 no-CUDA for Reconstruction Quality + Camera Path v1 - passed for cup/chair/shoe:
   - cup: 8 input frames, 8 registered frames, 729 PLY points, 8 cameras
@@ -145,7 +162,24 @@ npm --prefix frontend run build
 
 ## Next step
 
-Recommended next milestone after current work: real Gaussian Splatting reconstruction/training adapter.
+Recommended next milestone after current work: install/verify Nerfstudio environment and run first successful `splat.ply` training.
+
+## Real Splat Pipeline Adapter v1 notes
+
+- Added Nerfstudio/Splatfacto runner under `pipeline/adapters/nerfstudio_splat_runner.py`.
+- Added `SplatReconstructionService` and `reconstruct_splat` job type.
+- Added `GET /projects/{project_id}/splat-reconstruction`.
+- Added Nerfstudio configuration through `ROOMSPLAT_NERFSTUDIO_BIN_DIR`, `ROOMSPLAT_NS_PROCESS_DATA_PATH`, `ROOMSPLAT_NS_TRAIN_PATH`, and `ROOMSPLAT_NS_EXPORT_PATH`.
+- Frontend Jobs panel now includes `Run splat reconstruction`, Splatfacto method selection, and max-iteration input.
+- `reconstruct_splat` writes `metadata/splat_reconstruction.json` for both readiness-blocked and successful runs.
+- Missing Nerfstudio dependencies produce `status: blocked_missing_dependencies`, `is_reconstruction: false`, `not_reconstruction: true`, `output_path: null`, and no fake `reconstruction/splat.ply`.
+- When dependencies are ready, the adapter uses local `ns-process-data images`, `ns-train splatfacto`, and `ns-export gaussian-splat`, then copies the exported PLY to `reconstruction/splat.ply`.
+- Artifact ordering now puts real `reconstruction/splat.ply` before sparse point clouds.
+- Local readiness: RTX 3080 Ti visible via `nvidia-smi`; `nvcc` not on PATH; backend Python 3.12.13; `torch`, `nerfstudio`, `gsplat`, `pycolmap`, and `open3d` missing; `ns-process-data`, `ns-train`, and `ns-export` missing.
+- Objectron readiness checks:
+  - cup project `9522ce63dbfc454fb638fae38375863c`: 8 input frames, `blocked_missing_dependencies`, no `splat.ply`.
+  - chair project `eef6d5739f524dc8a45eadc43aa0c5ec`: 14 input frames, `blocked_missing_dependencies`, no `splat.ply`.
+  - shoe project `daae7b0411d54bbba2b95f71341ad5df`: 10 input frames, `blocked_missing_dependencies`, no `splat.ply`.
 
 ## Reconstruction Quality + Camera Path v1 notes
 

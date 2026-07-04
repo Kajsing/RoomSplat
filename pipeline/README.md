@@ -60,6 +60,28 @@ Current adapters:
 - `gsplat`: lower-level future custom/fast/generative splat boundary.
 - `open3d-debug`: optional point-cloud inspection tooling.
 
+## Nerfstudio splat adapter
+
+The first real splat adapter is `reconstruct_splat`, backed by Nerfstudio/Splatfacto.
+
+The backend job:
+
+- reads existing extracted frames from `metadata/frame_extraction.json`,
+- checks `ns-process-data`, `ns-train`, and `ns-export`,
+- writes `metadata/splat_reconstruction.json` for both blocked and successful runs,
+- runs `ns-process-data images`, `ns-train splatfacto`, and `ns-export gaussian-splat` when dependencies are ready,
+- copies the exported Gaussian splat PLY to `reconstruction/splat.ply`,
+- never writes fake splat geometry when dependencies are missing.
+
+Configuration options:
+
+- `ROOMSPLAT_NERFSTUDIO_BIN_DIR`
+- `ROOMSPLAT_NS_PROCESS_DATA_PATH`
+- `ROOMSPLAT_NS_TRAIN_PATH`
+- `ROOMSPLAT_NS_EXPORT_PATH`
+
+The recommended Windows path is an isolated Nerfstudio environment rather than adding Nerfstudio to the backend venv. Keep generated Nerfstudio datasets, checkpoints, configs, exports, and splats inside the ignored project data directory.
+
 Output labels must stay explicit:
 
 - `camera_poses`: camera intrinsics/extrinsics.

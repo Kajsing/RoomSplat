@@ -43,7 +43,7 @@ export type FrameExtractionOptions = {
   max_frames?: number
 }
 
-export type JobType = 'frame_extraction' | 'reconstruction_spike' | 'debug_frame_cloud' | 'reconstruct_point_cloud'
+export type JobType = 'frame_extraction' | 'reconstruction_spike' | 'debug_frame_cloud' | 'reconstruct_point_cloud' | 'reconstruct_splat'
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed'
 
 export type Job = {
@@ -180,6 +180,40 @@ export type ReconstructionMetadata = {
   warning?: string | null
 }
 
+export type SplatReconstructionMetadata = {
+  project_id: string
+  artifact_type: 'splat_ply'
+  mode: 'reconstruction'
+  reconstruction_type: 'gaussian_splat'
+  adapter: string
+  status: 'blocked_missing_dependencies' | 'succeeded' | 'failed' | string
+  is_reconstruction: boolean
+  not_reconstruction: boolean
+  debug: boolean
+  placeholder: boolean
+  generated_at?: string
+  frames_dir?: string
+  input_frame_count: number
+  source_frame_count?: number
+  params?: {
+    method: 'splatfacto' | 'splatfacto-big'
+    max_iterations?: number | null
+  }
+  readiness?: {
+    status: string
+    summary: string
+    blockers: string[]
+    next_steps: string[]
+  }
+  commands?: {
+    process_data: string[]
+    train: string[]
+    export: string[]
+  }
+  output_path?: string | null
+  warning?: string | null
+}
+
 export type ExportFormat = 'ply' | 'glb'
 export type ExportStatus = 'real' | 'placeholder'
 
@@ -295,6 +329,10 @@ export async function getReconstructionMetadata(projectId: string, baseUrl = DEF
   return requestJson<ReconstructionMetadata>(`${baseUrl}/projects/${projectId}/reconstruction`)
 }
 
+export async function getSplatReconstructionMetadata(projectId: string, baseUrl = DEFAULT_BASE_URL) {
+  return requestJson<SplatReconstructionMetadata>(`${baseUrl}/projects/${projectId}/splat-reconstruction`)
+}
+
 export async function createExport(
   projectId: string,
   sourceArtifactId: string,
@@ -320,8 +358,19 @@ export async function listExports(projectId: string, baseUrl = DEFAULT_BASE_URL)
 
 function readErrorMessage(text: string) {
   try {
-    const payload = JSON.parse(text) as { detail?: string }
-    return payload.detail || text
+    const payload = JSON.parse(text) as { detail?: unknown }
+    if (typeof payload.detail === 'string') return payload.detail
+    if (Array.isArray(payload.detail)) {
+      return payload.detail
+        .map((item) => {
+          if (typeof item === 'string') return item
+          if (item && typeof item === 'object' && 'msg' in item) return String((item as { msg: unknown }).msg)
+          return JSON.stringify(item)
+        })
+        .join('; ')
+    }
+    if (payload.detail) return JSON.stringify(payload.detail)
+    return text
   } catch {
     return text
   }

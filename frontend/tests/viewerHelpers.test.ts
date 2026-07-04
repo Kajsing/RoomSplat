@@ -38,8 +38,8 @@ test('sorts real artifacts before debug and placeholder artifacts', () => {
   assert.deepEqual(
     sortArtifactsForViewer(artifacts).map((artifact) => artifact.relative_path),
     [
-      'reconstruction/sparse-point-cloud.ply',
       'reconstruction/splat.ply',
+      'reconstruction/sparse-point-cloud.ply',
       'reconstruction/debug-frame-room.ply',
       'metadata/reconstruction_spike.json',
       'exports/placeholder-reconstruction-spike-1234.ply',

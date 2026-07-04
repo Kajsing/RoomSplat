@@ -11,6 +11,7 @@ from app.services.frame_extraction import FrameExtractionService
 from app.services.job_store import JobStore
 from app.services.project_store import ProjectStore
 from app.services.reconstruction_jobs import ReconstructionService
+from app.services.splat_reconstruction import SplatReconstructionService
 
 from pipeline.scripts.run_reconstruction_spike import build_report, inspect_frames, write_report
 
@@ -39,6 +40,8 @@ class LocalWorker:
             return self._run_debug_frame_cloud(job)
         if job.job_type == "reconstruct_point_cloud":
             return self._run_reconstruct_point_cloud(job)
+        if job.job_type == "reconstruct_splat":
+            return self._run_reconstruct_splat(job)
         raise ValueError(f"Unsupported job type: {job.job_type}")
 
     def _run_frame_extraction(self, job: JobResponse) -> dict[str, Any]:
@@ -86,6 +89,25 @@ class LocalWorker:
             preset=job.params.get("preset", "balanced"),
         )
         self.job_store.append_log(job.project_id, job.id, f"wrote sparse point cloud: {result['output_path']}")
+        return result
+
+    def _run_reconstruct_splat(self, job: JobResponse) -> dict[str, Any]:
+        service = SplatReconstructionService(
+            self.project_store,
+            ns_process_data_path=self.config.ns_process_data_path,
+            ns_train_path=self.config.ns_train_path,
+            ns_export_path=self.config.ns_export_path,
+            nerfstudio_bin_dir=self.config.nerfstudio_bin_dir,
+        )
+        result = service.reconstruct_splat(
+            job.project_id,
+            method=job.params.get("method", "splatfacto"),
+            max_iterations=job.params.get("max_iterations"),
+        )
+        if result.get("output_path"):
+            self.job_store.append_log(job.project_id, job.id, f"wrote Gaussian splat: {result['output_path']}")
+        else:
+            self.job_store.append_log(job.project_id, job.id, f"splat reconstruction not ready: {result['status']}")
         return result
 
 

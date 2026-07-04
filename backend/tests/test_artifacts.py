@@ -41,9 +41,9 @@ def test_artifact_listing_labels_reconstruction_and_debug_files(tmp_path, monkey
     assert {artifact["viewer_supported"] for artifact in artifacts if artifact["artifact_type"] == "debug_report"} == {True}
     assert {artifact["viewer_supported"] for artifact in artifacts if artifact["artifact_type"] == "mesh_glb"} == {True}
     assert [artifact["relative_path"] for artifact in artifacts] == [
+        "reconstruction/splat.ply",
         "reconstruction/sparse-point-cloud.ply",
         "reconstruction/pointcloud.ply",
-        "reconstruction/splat.ply",
         "exports/result.glb",
         "reconstruction/debug-frame-room.ply",
         "metadata/reconstruction_spike.json",
@@ -141,6 +141,38 @@ def test_reconstruction_metadata_endpoint_returns_404_when_missing(tmp_path, mon
     project = client.post("/projects", json={"name": "No reconstruction metadata"}).json()
 
     response = client.get(f"/projects/{project['id']}/reconstruction")
+
+    assert response.status_code == 404
+
+
+def test_splat_reconstruction_metadata_endpoint_returns_metadata(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "Splat metadata"}).json()
+    project_dir = tmp_path / project["id"]
+    payload = {
+        "project_id": project["id"],
+        "artifact_type": "splat_ply",
+        "mode": "reconstruction",
+        "reconstruction_type": "gaussian_splat",
+        "status": "blocked_missing_dependencies",
+        "is_reconstruction": False,
+        "not_reconstruction": True,
+    }
+    (project_dir / "metadata" / "splat_reconstruction.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    response = client.get(f"/projects/{project['id']}/splat-reconstruction")
+
+    assert response.status_code == 200
+    assert response.json() == payload
+
+
+def test_splat_reconstruction_metadata_endpoint_returns_404_when_missing(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROOMSPLAT_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    project = client.post("/projects", json={"name": "No splat metadata"}).json()
+
+    response = client.get(f"/projects/{project['id']}/splat-reconstruction")
 
     assert response.status_code == 404
 

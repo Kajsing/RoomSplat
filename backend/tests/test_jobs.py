@@ -13,6 +13,7 @@ from app.config import AppConfig
 from app.main import app
 from app.services.debug_frame_cloud import DebugFrameCloudService
 import app.services.reconstruction_jobs as reconstruction_jobs
+import app.services.splat_reconstruction as splat_reconstruction
 from pipeline.adapters.colmap_sparse_runner import (
     ColmapCamera,
     ColmapModelMetadata,
@@ -20,6 +21,7 @@ from pipeline.adapters.colmap_sparse_runner import (
     ColmapRunResult,
     ColmapTrajectoryBounds,
 )
+from pipeline.adapters.nerfstudio_splat_runner import NerfstudioSplatRunResult, SplatReadiness
 from app.services.job_store import JobStore
 from app.services.project_store import ProjectStore
 from app.services.video_import import VideoImportService
@@ -357,6 +359,114 @@ def test_worker_rejects_point_cloud_reconstruction_frames_dir_outside_project(tm
 
     assert completed.status == "failed"
     assert completed.error == "Reconstruction path escaped the project directory."
+
+
+def test_worker_runs_splat_reconstruction_readiness_when_dependencies_are_missing(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Splat readiness")
+    project_dir = tmp_path / project.id
+    _write_frames(project_dir / "frames", count=4)
+    _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=4)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "reconstruct_splat", {"method": "splatfacto", "max_iterations": 30})
+    worker = LocalWorker(
+        project_store,
+        job_store,
+        AppConfig(data_dir=tmp_path, nerfstudio_bin_dir=str(tmp_path / "missing-nerfstudio-bin")),
+    )
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "succeeded"
+    assert completed.result is not None
+    assert completed.result["artifact_type"] == "splat_ply"
+    assert completed.result["status"] == "blocked_missing_dependencies"
+    assert completed.result["is_reconstruction"] is False
+    assert completed.result["not_reconstruction"] is True
+    assert completed.result["output_path"] is None
+    assert completed.result["params"] == {"method": "splatfacto", "max_iterations": 30}
+    assert completed.result["readiness"]["blockers"]
+    assert "ns-train" in json.dumps(completed.result["commands"])
+    assert not (project_dir / "reconstruction" / "splat.ply").exists()
+    metadata = json.loads((project_dir / "metadata" / "splat_reconstruction.json").read_text(encoding="utf-8"))
+    assert metadata["status"] == "blocked_missing_dependencies"
+
+
+def test_worker_runs_splat_reconstruction_with_mocked_nerfstudio(tmp_path, monkeypatch) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Splat success")
+    project_dir = tmp_path / project.id
+    _write_frames(project_dir / "frames", count=4)
+    _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=4)
+
+    class FakeRunner:
+        name = "nerfstudio-splatfacto"
+
+        def __init__(self, **kwargs) -> None:
+            self.kwargs = kwargs
+
+        def assess(self):
+            return SplatReadiness(status="ready", summary="ready", dependencies=(), blockers=(), next_steps=("run it",))
+
+        def build_commands(self, paths, *, method, max_iterations):
+            return (
+                ["ns-process-data", "images", "--data", str(paths.frames_dir)],
+                ["ns-train", method, "--max-num-iterations", str(max_iterations)],
+                ["ns-export", "gaussian-splat", "--load-config", "<config.yml>"],
+            )
+
+        def run(self, paths, *, method, max_iterations):
+            paths.final_splat_ply.parent.mkdir(parents=True, exist_ok=True)
+            paths.final_splat_ply.write_text("ply\nformat ascii 1.0\nend_header\n", encoding="utf-8")
+            config_path = paths.output_dir / "splatfacto" / "config.yml"
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            config_path.write_text("method_name: splatfacto\n", encoding="utf-8")
+            exported_ply = paths.export_dir / "splat.ply"
+            exported_ply.parent.mkdir(parents=True, exist_ok=True)
+            exported_ply.write_text("ply\n", encoding="utf-8")
+            return NerfstudioSplatRunResult(
+                adapter=self.name,
+                method=method,
+                paths=paths,
+                process_command=[],
+                train_command=[],
+                export_command=[],
+                config_path=config_path,
+                exported_ply=exported_ply,
+                command_count=3,
+            )
+
+    monkeypatch.setattr(splat_reconstruction, "NerfstudioSplatRunner", FakeRunner)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "reconstruct_splat", {"method": "splatfacto", "max_iterations": 12})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "succeeded"
+    assert completed.result is not None
+    assert completed.result["status"] == "succeeded"
+    assert completed.result["is_reconstruction"] is True
+    assert completed.result["not_reconstruction"] is False
+    assert completed.result["output_path"] == "reconstruction/splat.ply"
+    assert completed.result["nerfstudio"]["command_count"] == 3
+    assert (project_dir / "reconstruction" / "splat.ply").is_file()
+
+
+def test_worker_rejects_unknown_splat_method(tmp_path) -> None:
+    project_store = ProjectStore(tmp_path)
+    project = project_store.create_project("Splat bad method")
+    project_dir = tmp_path / project.id
+    _write_frames(project_dir / "frames", count=3)
+    _write_frame_extraction_metadata(project_dir, frames_dir="frames", count=3)
+    job_store = JobStore(project_store)
+    job = job_store.create_job(project.id, "reconstruct_splat", {"method": "made-up"})
+    worker = LocalWorker(project_store, job_store, AppConfig(data_dir=tmp_path))
+
+    completed = worker.run_job(project.id, job.id)
+
+    assert completed.status == "failed"
+    assert completed.error == "method must be 'splatfacto' or 'splatfacto-big'."
 
 
 def test_jobs_api_creates_and_polls_job(tmp_path, monkeypatch) -> None:

@@ -87,3 +87,37 @@ Manual/browser checks:
 - Toggle points, cameras, path, grid, and axes independently.
 - Confirm camera frustums and trajectory remain distinct from debug frame-plane markers.
 - Confirm artifact ordering keeps `reconstruction/sparse-point-cloud.ply` above debug frame planes and placeholder exports.
+
+## Real Splat Pipeline Exploration + First Local Splat Adapter v1
+
+Focused validation for the Nerfstudio/Splatfacto adapter:
+
+```bash
+python -m pytest pipeline/tests/test_nerfstudio_splat_runner.py backend/tests/test_jobs.py backend/tests/test_artifacts.py
+node --experimental-strip-types --test frontend/tests/*.test.ts
+npm --prefix frontend run build
+```
+
+Local readiness on July 4, 2026:
+
+- GPU: NVIDIA GeForce RTX 3080 Ti visible through `nvidia-smi`.
+- CUDA driver runtime: visible through NVIDIA driver; `nvcc` was not on PATH.
+- Backend Python: 3.12.13.
+- Missing from backend Python runtime: `torch`, `nerfstudio`, `gsplat`, `pycolmap`, `open3d`.
+- Missing from PATH: `ns-process-data`, `ns-train`, `ns-export`.
+- COLMAP is not on PATH, but local ignored COLMAP 4.1.0 no-CUDA exists under `data/tools/`.
+
+Objectron splat readiness checks with `method=splatfacto`, `max_iterations=3000`:
+
+| Sample | Project | Input frames | Status | Output |
+|---|---|---:|---|---|
+| Objectron cup | `9522ce63dbfc454fb638fae38375863c` | 8 | blocked_missing_dependencies | no `splat.ply` |
+| Objectron chair | `eef6d5739f524dc8a45eadc43aa0c5ec` | 14 | blocked_missing_dependencies | no `splat.ply` |
+| Objectron shoe | `daae7b0411d54bbba2b95f71341ad5df` | 10 | blocked_missing_dependencies | no `splat.ply` |
+
+Manual/browser checks:
+
+- Start a `reconstruct_splat` job.
+- Confirm missing Nerfstudio dependencies produce a succeeded readiness job with `metadata/splat_reconstruction.json`.
+- Confirm no placeholder `reconstruction/splat.ply` is created when readiness is blocked.
+- When Nerfstudio is installed, confirm `reconstruction/splat.ply` is listed as `splat_ply` and sorted above sparse point clouds.

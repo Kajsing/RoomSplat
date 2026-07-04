@@ -6,6 +6,7 @@ from app.config import get_config
 from app.models.schemas import FrameExtractionRequest, FrameExtractionResponse, VideoImportResponse
 from app.services.frame_extraction import FrameExtractionError, FrameExtractionService
 from app.services.project_store import ProjectStore, ProjectStoreError
+from app.services.splat_reconstruction import SplatReconstructionService
 from app.services.video_import import VideoImportError, VideoImportService
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["video import"])
@@ -72,6 +73,24 @@ def get_frame_extraction(project_id: str) -> FrameExtractionResponse:
         return FrameExtractionResponse.model_validate(json.loads(metadata_path.read_text(encoding="utf-8")))
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail="Frame extraction metadata is invalid.") from exc
+
+
+@router.get("/splat-reconstruction")
+def get_splat_reconstruction(project_id: str) -> dict:
+    config = get_config()
+    service = SplatReconstructionService(
+        ProjectStore(config.data_dir),
+        ns_process_data_path=config.ns_process_data_path,
+        ns_train_path=config.ns_train_path,
+        ns_export_path=config.ns_export_path,
+        nerfstudio_bin_dir=config.nerfstudio_bin_dir,
+    )
+    try:
+        return service.read_metadata(project_id)
+    except ProjectStoreError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 async def _read_limited_body(request: Request, max_bytes: int) -> bytes:

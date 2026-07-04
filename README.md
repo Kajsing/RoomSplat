@@ -12,8 +12,8 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Local project storage with `GET /projects` and `POST /projects`.
 - Video upload into project `input/` folders.
 - Deterministic frame extraction into project `frames/` folders.
-- Local background jobs for frame extraction, reconstruction-spike orchestration, debug frame planes, and real sparse point-cloud reconstruction.
-- Artifact discovery/download APIs with explicit labels for debug frame clouds, point clouds, splats, GLB, and debug reports.
+- Local background jobs for frame extraction, reconstruction-spike orchestration, debug frame planes, real sparse point-cloud reconstruction, and Nerfstudio-backed splat reconstruction readiness/training.
+- Artifact discovery/download APIs with explicit labels for debug frame clouds, point clouds, real splats, GLB, and debug reports.
 - Browser Three.js viewer with orbit/inspect controls, large-view mode, camera presets, stats, screenshot capture, frame markers for debug frame clouds, camera/path overlays for COLMAP point clouds, point cloud PLY, splat PLY fallback, and GLB scenes.
 - Export APIs and UI controls for `.ply` / `.glb` outputs, including explicit placeholder labels for debug exports.
 - Vite + React frontend displaying backend health, create/list projects, video upload, job status, and artifact viewer states.
@@ -21,9 +21,9 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 
 ## What it does not do yet
 
-- No real Gaussian Splatting / NeRF training is integrated yet; the current reconstruction path is a dependency/readiness spike.
+- Real Gaussian Splatting training is wired through a local Nerfstudio/Splatfacto adapter, but it only produces `reconstruction/splat.ply` when the Nerfstudio CLI dependencies are installed.
 - Placeholder exports can be created from the reconstruction spike report for UI/workflow testing, but they are labeled as placeholders and are not real reconstruction.
-- Real Gaussian Splatting reconstruction is still future work; debug frame planes are sampled from extracted frames for viewer/debug testing only.
+- If Nerfstudio is missing, the splat job writes `metadata/splat_reconstruction.json` with actionable blockers and does not create fake splat output.
 - Real sparse point-cloud reconstruction requires local COLMAP.
 - General MP4/MOV extraction requires `ffmpeg` on PATH or `ROOMSPLAT_FFMPEG_PATH`.
 - No live phone/webcam streaming yet.
@@ -38,7 +38,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Git.
 - Optional for MP4/MOV/AVI/MKV/WebM extraction: ffmpeg on `PATH` or configured with `ROOMSPLAT_FFMPEG_PATH`.
 - Optional for real sparse point-cloud reconstruction: COLMAP on `PATH` or configured with `ROOMSPLAT_COLMAP_PATH`.
-- Optional future splat tooling: pycolmap, Nerfstudio/Splatfacto, gsplat, PyTorch/CUDA, and Open3D.
+- Optional for real Gaussian Splatting reconstruction: a separate Nerfstudio/Splatfacto environment with `ns-process-data`, `ns-train`, `ns-export`, PyTorch/CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.
 
 GIF fixtures and tests work without ffmpeg. Real reconstruction training is not integrated yet.
 
@@ -50,6 +50,8 @@ Copy `.env.example` to `.env` if you want local overrides. Important defaults:
 - `ROOMSPLAT_MAX_UPLOAD_MB=2048`
 - `ROOMSPLAT_FFMPEG_TIMEOUT_SECONDS=1800`
 - `ROOMSPLAT_COLMAP_PATH=` optional full path to `colmap.exe`
+- `ROOMSPLAT_NERFSTUDIO_BIN_DIR=` optional path to the Nerfstudio environment `Scripts`/`bin` folder
+- `ROOMSPLAT_NS_PROCESS_DATA_PATH=`, `ROOMSPLAT_NS_TRAIN_PATH`, `ROOMSPLAT_NS_EXPORT_PATH` optional per-command overrides
 - `VITE_ROOMSPLAT_API_URL=http://127.0.0.1:8000`
 
 Keep generated project data under `data/` or another ignored local folder.
@@ -91,14 +93,16 @@ Open the Vite URL shown in the terminal, usually `http://127.0.0.1:5173`.
 3. Extract frames through the local job flow.
 4. Create debug frame planes if you want a quick flat-frame-in-3D artifact for testing viewer orientation and controls. Optional parameters are `max_points`, `frame_step`, `arc_degrees`, and `plane_width`.
 5. Run point cloud reconstruction to create a real COLMAP sparse point cloud at `reconstruction/sparse-point-cloud.ply`. Choose quick/balanced/detail presets as guidance for the extraction density you want to compare.
-6. Run the reconstruction spike to check longer-term splat dependency readiness.
-7. Inspect listed artifacts/debug reports in the browser viewer.
-8. Export `.ply` or `.glb` artifacts when available.
+6. Run splat reconstruction to attempt Nerfstudio/Splatfacto. If dependencies are missing, inspect the generated readiness diagnosis; if dependencies are ready, the job writes `reconstruction/splat.ply`.
+7. Run the reconstruction spike if you want the older multi-adapter dependency report.
+8. Inspect listed artifacts/debug reports in the browser viewer.
+9. Export `.ply` or `.glb` artifacts when available.
 
 Placeholder exports are allowed only for workflow/debug testing and are labeled as placeholders.
 Debug frame plane artifacts are also debug-only and must not be described as reconstruction output.
 
 If COLMAP is not installed, the point-cloud reconstruction job fails with setup guidance instead of writing fake output.
+If Nerfstudio is not installed, the splat reconstruction job succeeds as a readiness check, writes `metadata/splat_reconstruction.json`, and does not write `reconstruction/splat.ply`.
 
 ## Run tests
 
@@ -126,6 +130,7 @@ Generated videos, frames, reconstruction outputs, splats, checkpoints, and expor
 - `debug_frame_cloud_ply` is a deterministic viewer/debug point cloud sampled from flat extracted frames and placed in 3D; it is not a reconstruction.
 - `reconstruction/sparse-point-cloud.ply` is a real COLMAP sparse `point_cloud_ply` artifact when point-cloud reconstruction succeeds.
 - `splat_ply` is Gaussian splat data stored in a PLY-like format, not a conventional point cloud.
+- `reconstruction/splat.ply` is considered real only when `metadata/splat_reconstruction.json` has `status: succeeded` and `is_reconstruction: true`.
 - `mesh_glb` is a portable scene/mesh container only when a real conversion path exists.
 - Large PLY files should be downloaded for full inspection; the debug frame planes generator caps output at 50,000 points.
 - Debug frame plane metadata records sampled frame planes, point counts, params, and `not_reconstruction: true`.

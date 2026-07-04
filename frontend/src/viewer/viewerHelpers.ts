@@ -30,11 +30,12 @@ export function artifactPriority(artifact: Pick<Artifact, 'artifact_type' | 'rel
   const name = artifact.relative_path.split('/').pop()?.toLowerCase() ?? ''
   const isPlaceholder = artifact.relative_path.startsWith('exports/') && name.startsWith('placeholder-')
   if (isPlaceholder) return 90
-  if (artifact.relative_path === 'reconstruction/sparse-point-cloud.ply') return 0
+  if (artifact.relative_path === 'reconstruction/splat.ply') return 0
+  if (artifact.relative_path === 'reconstruction/sparse-point-cloud.ply') return 10
   const ranks: Record<ArtifactType, number> = {
-    point_cloud_ply: 10,
     splat_ply: 20,
-    mesh_glb: 30,
+    point_cloud_ply: 30,
+    mesh_glb: 40,
     debug_frame_cloud_ply: 60,
     debug_report: 70,
     unsupported: 100,
