@@ -3,7 +3,8 @@
 ## Current status
 
 Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented.
-Current milestone: Usable 3D Viewer Preview complete pending final validation and push.
+Current milestone: Usable 3D Viewer Preview complete and pushed.
+Next planned milestone: Real Reconstruction Preview v1.
 
 ## Latest completed milestone
 
@@ -114,7 +115,15 @@ npm --prefix frontend run build
 
 ## Next step
 
-Recommended next milestone: real reconstruction dependency setup, import/viewer polishing for larger artifacts, or a minimal end-to-end sample project pack.
+Recommended next milestone: Real Reconstruction Preview v1. See `docs/next-goals/real-reconstruction-preview-v1.md`.
+
+## Real Reconstruction Preview v1 plan
+
+- Saved next-goal plan at `docs/next-goals/real-reconstruction-preview-v1.md`.
+- Direction: add a local COLMAP-backed `reconstruct_point_cloud` job that produces a real sparse `point_cloud_ply` artifact from extracted frames.
+- Keep Frame Room Cloud/debug frame planes explicitly labeled as not reconstruction.
+- Use COLMAP dependency detection and clear setup errors instead of adding binaries, Docker, cloud upload, or paid services.
+- Preserve local-only v1 assumptions and generated-data git hygiene.
 
 ## Usable 3D Viewer Preview notes
 
