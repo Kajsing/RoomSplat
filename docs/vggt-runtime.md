@@ -113,10 +113,17 @@ If preflight reports less than the configured free VRAM budget, close other GPU 
 
 ## Current local status
 
-As of the Milestone 12 wrapper slice:
+As of the first real local VGGT smoke follow-up:
 
 - `pipeline/scripts/run_vggt_runtime.py --help` works.
-- The existing Nerfstudio micromamba envs have `torch`, `torchvision`, and `numpy`, but not `vggt`, `safetensors`, or `huggingface_hub`.
-- No VGGT checkpoint was found under `data/models`.
-- Real VGGT inference has not been run yet.
-- The wrapper and RoomSplat runtime handoff are tested with dry-run/contract tests and the existing fake-runtime import test.
+- VGGT is cloned into ignored `data/tools/vggt` and installed editable into the existing Python 3.10 CUDA env.
+- The local env has `torch==2.1.2+cu118`, `torchvision==0.16.2+cu118`, `vggt`, `safetensors`, `huggingface_hub`, `einops`, `opencv-python`, and `numpy==1.26.4`.
+- `facebook/VGGT-1B` `model.pt` is stored under ignored `data/models/vggt/model.pt`.
+- Checkpoint SHA-256: `D15BF50A8615C8225ED48B51EA5CAC673D82442EC0309036DF555A053253AFE0`.
+- `.env` is configured locally with the VGGT runtime command, wrapper path, model root, checkpoint path/SHA, learned cache dir, 7 GB minimum free VRAM, and 30 minute timeout.
+- A 4-frame smoke with `image_max_size=518`, `precision=fp16`, and `allow_cpu_offload=false` succeeded on project `9522ce63dbfc454fb638fae38375863c`.
+- The smoke imported `reconstruction/learned-point-cloud.ply` as `predicted_point_cloud_ply` with 100,000 points and wrote `metadata/geometry_bundle.json`.
+- Browser verification selected `learned-point-cloud.ply` and rendered a nonblank Three.js viewer frame.
+- The wrapper and RoomSplat runtime handoff remain covered by dry-run/contract tests and fake-runtime import tests.
+
+Next local experiments should increase frame count gradually toward 8-12 frames, then inspect whether object quality improves before raising image size.

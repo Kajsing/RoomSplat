@@ -2,9 +2,9 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness implemented; learned geometry import/preflight v1 implemented; local learned runtime smoke path implemented; VGGT-first runtime wrapper implemented.
-Current milestone: VGGT-first learned runtime wrapper complete.
-Next planned milestone: manually install/configure VGGT dependencies and a trusted checkpoint, run the first real 8-12 frame VGGT smoke on the Windows/RTX 3080 Ti machine, then tune frame/resize/precision budget based on observed VRAM and viewer output. Tablet support remains a stretch capture/viewer workflow, not a v1 on-device inference requirement.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness implemented; learned geometry import/preflight v1 implemented; local learned runtime smoke path implemented; VGGT-first runtime wrapper implemented; first real local VGGT smoke completed.
+Current milestone: first real local VGGT smoke complete.
+Next planned milestone: tune the VGGT smoke budget upward from 4 frames toward 8-12 frames on the Windows/RTX 3080 Ti machine, inspect object quality in the viewer, and then decide whether to improve orientation/normalization, confidence filtering, or frame selection first. Tablet support remains a stretch capture/viewer workflow, not a v1 on-device inference requirement.
 
 ## Latest completed milestone
 
@@ -83,6 +83,15 @@ npm --prefix frontend run build
 - `py -3.12 pipeline\scripts\run_vggt_runtime.py --help` - passed.
 - `$env:PYTHONPATH='backend'; py -3.12 -m pytest pipeline/tests/test_vggt_runtime_wrapper.py pipeline/tests/test_learned_runtime_adapter.py backend/tests/test_learned_runtime.py` - passed, 14 tests.
 - Direct local `learned_runtime_smoke` with VGGT wrapper command configured but no checkpoint - passed as diagnostic: `blocked_missing_checkpoint`, `output_path: null`, no `metadata/geometry_bundle.json`, no `reconstruction/learned-point-cloud.ply`.
+- Manual VGGT setup in ignored local data paths: cloned VGGT to `data/tools/vggt`, installed it editable into the Python 3.10 CUDA env, downloaded trusted `facebook/VGGT-1B` checkpoint to `data/models/vggt/model.pt`, and configured `.env` with runtime/checkpoint/cache paths.
+- Local `learned_runtime_preflight` for project `9522ce63dbfc454fb638fae38375863c` with `adapter=vggt`, `max_frames=4`, `image_max_size=518`, `precision=fp16` - passed as `ready`; observed RTX 3080 Ti, 12,288 MB total VRAM, 8,904 MB free, estimated required VRAM 6,481 MB.
+- Local `learned_runtime_smoke` for the same project/settings - passed; imported `reconstruction/learned-point-cloud.ply` as `predicted_point_cloud_ply` with 100,000 points and wrote `metadata/geometry_bundle.json`.
+- Browser verification at `http://127.0.0.1:5173/` selected `learned-point-cloud.ply`; the Three.js viewer reported `Points: 100,000` and rendered a nonblank predicted point-cloud view.
+- `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests/test_learned_runtime.py pipeline/tests/test_vggt_runtime_wrapper.py` - passed, 9 tests after the real VGGT smoke follow-up.
+- `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 122 tests after the real VGGT smoke follow-up.
+- Bundled Node frontend helper tests - passed, 12 tests after the real VGGT smoke follow-up.
+- Bundled Node Vite build from `frontend/` - passed after the real VGGT smoke follow-up with the existing large chunk warning.
+- `git diff --check` - passed after the real VGGT smoke follow-up with line-ending warnings only.
 - `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 122 tests after VGGT wrapper.
 - Bundled Node frontend helper tests - passed, 12 tests after VGGT wrapper.
 - Bundled Node Vite build from `frontend/` - passed after VGGT wrapper with the existing large chunk warning.
@@ -450,6 +459,16 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
   - Existing envs did not have `vggt`, `safetensors`, or `huggingface_hub`.
   - No VGGT checkpoint was present under `data/models`.
 - Real VGGT inference was not run because dependency/checkpoint acquisition is manual by design.
+- Local follow-up smoke:
+  - VGGT was cloned into ignored `data/tools/vggt` and installed editable into the existing Python 3.10 CUDA env.
+  - Supporting packages were installed locally: `safetensors`, `huggingface_hub`, `einops`, and `opencv-python`; `numpy` was pinned back to `1.26.4` for VGGT compatibility.
+  - `facebook/VGGT-1B` `model.pt` was downloaded manually into ignored `data/models/vggt/model.pt`.
+  - Checkpoint SHA-256: `D15BF50A8615C8225ED48B51EA5CAC673D82442EC0309036DF555A053253AFE0`.
+  - `.env` was updated locally with the VGGT runtime command, absolute wrapper path, model root, checkpoint path/SHA, cache dir, 7 GB minimum free VRAM, and 30 minute runtime timeout. `.env` remains ignored.
+  - A 4-frame `fp16`, `image_max_size=518` VGGT smoke succeeded on project `9522ce63dbfc454fb638fae38375863c`.
+  - The imported artifact is `reconstruction/learned-point-cloud.ply`, labeled `predicted_point_cloud_ply`, with 100,000 points.
+  - `metadata/geometry_bundle.json` now records that the output came from a local SHA-256 allowlisted VGGT checkpoint and still marks the result as learned/predicted geometry, not a verified metric reconstruction.
+  - Browser verification selected the learned artifact and rendered it in the Three.js viewer.
 - Blocked validation:
   - a direct `learned_runtime_smoke` with the VGGT wrapper command configured and no checkpoint returned `blocked_missing_checkpoint`;
   - no fake `metadata/geometry_bundle.json` or `reconstruction/learned-point-cloud.ply` was written.

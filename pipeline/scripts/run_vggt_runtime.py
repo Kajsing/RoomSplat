@@ -4,7 +4,7 @@ import argparse
 import json
 import math
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -251,7 +251,7 @@ def write_sampling_json(path: Path, frame_paths: list[Path], frame_index_map: li
         json.dumps(
             {
                 "adapter": "vggt",
-                "generated_at": datetime.now(UTC).isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "frame_index_map": frame_index_map,
                 "runtime": runtime,
                 "selected_frames": [
@@ -270,7 +270,7 @@ def write_completion_json(path: Path, frame_index_map: list[int], *, frame_keys:
     path.write_text(
         json.dumps(
             {
-                "completed_at": datetime.now(UTC).isoformat(),
+                "completed_at": datetime.now(timezone.utc).isoformat(),
                 "metadata": {
                     "adapter": "vggt",
                     "schema_version": "roomsplat.vggt_output.v1",
@@ -299,7 +299,7 @@ def write_blocked_diagnostics(
             {
                 "status": "blocked",
                 "reason": reason,
-                "generated_at": datetime.now(UTC).isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "frame_count": len(frame_paths),
                 "frame_index_map": frame_index_map,
                 "image_max_size": args.image_max_size,

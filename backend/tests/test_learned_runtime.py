@@ -90,13 +90,17 @@ def test_worker_learned_runtime_smoke_imports_fake_local_runtime_output(tmp_path
     assert completed.result["runtime_status"] == "succeeded"
     assert completed.result["source_adapter"] == "fake-learned-runtime"
     assert completed.result["frame_count"] == 2
+    assert any("local, SHA-256 allowlisted checkpoint" in warning for warning in completed.result["warnings"])
+    assert all("No model checkpoint was loaded" not in warning for warning in completed.result["warnings"])
     assert completed.result["frame_index_map"] == [
         {"bundle_frame_index": 0, "source_frame_index": 0, "source_frame": "frames/frame_000001.png"},
         {"bundle_frame_index": 1, "source_frame_index": 2, "source_frame": "frames/frame_000003.png"},
     ]
     assert (project_dir / "reconstruction" / "learned-point-cloud.ply").is_file()
     assert (project_dir / "metadata" / "geometry_bundle.json").is_file()
-    assert "fake.pt" not in (project_dir / "metadata" / "geometry_bundle.json").read_text(encoding="utf-8")
+    bundle_text = (project_dir / "metadata" / "geometry_bundle.json").read_text(encoding="utf-8")
+    assert "fake.pt" not in bundle_text
+    assert "No model checkpoint was loaded" not in bundle_text
 
     artifacts = ArtifactService(project_store).list_artifacts(project.id)
     labels = {artifact.relative_path: artifact.artifact_type for artifact in artifacts}
