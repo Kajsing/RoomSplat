@@ -69,3 +69,17 @@ Mitigation:
 - Enforce a configurable upload size limit.
 - Enforce an ffmpeg timeout.
 - Keep frame extraction bounded with stride and max-frame options.
+
+## Medium risk: learned reconstruction checkpoints and research runtimes
+
+LingBot-Map/VGGT-style feed-forward reconstruction is promising, but research repos often depend on large model checkpoints, CUDA-specific packages, automatic downloads, and server/viewer assumptions that do not match RoomSplat's local-only Windows baseline.
+
+Mitigation:
+
+- Add a RoomSplat-native geometry bundle contract before integrating any learned model runtime.
+- Require manual model/checkpoint paths by default.
+- Use checksums or explicit allowlists before loading large model files.
+- Keep learned adapters optional and isolated from the backend runtime.
+- Report missing CUDA/GPU/model dependencies as blocked diagnostics.
+- Keep all generated depth, NPZ, point, video, mask, and checkpoint outputs contained under the ignored project data directory.
+- Do not expose no-auth viewers or APIs beyond `127.0.0.1`.

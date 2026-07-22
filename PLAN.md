@@ -183,6 +183,51 @@ npm --prefix frontend run build
 git status --short
 ```
 
+## Milestone 9 - Learned Geometry Adapter Readiness
+
+Goal: Prepare RoomSplat for optional feed-forward / learned reconstruction adapters that produce depth, confidence, camera poses, intrinsics, trajectories, and pointmap-style geometry without making any specific research model a core dependency.
+
+Inspiration sources:
+
+- Local reference copy: `C:\project\lingbot-map`.
+- LingBot-Map-style output contracts: per-frame RGB/depth/confidence/points plus scene-level cameras, intrinsics, trajectory, point cloud, sampling metadata, and completion markers.
+
+Acceptance criteria:
+
+- Define a RoomSplat-native geometry bundle contract under project `metadata/` that can describe:
+  - source adapter and schema version,
+  - frame count and frame index mapping,
+  - camera poses, intrinsics, and trajectory,
+  - optional depth/confidence/mask availability,
+  - primary artifacts and sidecar files,
+  - quality notes, warnings, completion status, and generated-data rules.
+- Keep the contract independent of COLMAP, Nerfstudio, LingBot-Map, or any single model internals.
+- Add or update adapter interfaces so future learned adapters can return a normalized artifact bundle instead of writing arbitrary files directly into project folders.
+- Extend artifact/documentation language for `predicted_point_cloud` / `learned_geometry` outputs so they are not confused with Gaussian splats, COLMAP sparse point clouds, meshes, or metric scans.
+- Add viewer planning for confidence filtering, frame selector, current-frame/all-frames display, clickable camera/frustum inspection, camera downsampling, and trajectory inspection.
+- Document dependency and safety rules for experimental learned adapters:
+  - no automatic model or dataset downloads by default,
+  - user-supplied model/checkpoint paths only,
+  - checksum or explicit allowlist before loading large model files,
+  - isolated local environment,
+  - localhost-only UI/server assumptions,
+  - generated outputs capped and contained under the project data directory,
+  - missing GPU/CUDA/model dependencies reported as blocked diagnostics, not fake artifacts.
+- Add focused tests for geometry bundle validation, path containment, artifact labeling, incomplete bundle rejection, and viewer/API type handling.
+
+Validation:
+
+```bash
+python -m pytest backend/tests pipeline/tests
+npm --prefix frontend run build
+git diff --check
+git status --short
+```
+
+Stop condition:
+
+Stop before adding a direct LingBot-Map or similar model runtime dependency if it requires changing RoomSplat's Windows-native, local-only, no-cloud, or no-paid-dependency assumptions. Document the alternative and ask before changing direction.
+
 ## Future milestones, not v1
 
 - Live stream/webcam ingestion.
@@ -191,4 +236,5 @@ git status --short
 - Better measurement tools.
 - Dense mesh generation.
 - Better GLB conversion.
+- Experimental LingBot-Map/VGGT-style learned geometry adapter after Milestone 9 contracts and safety rules are in place.
 - Packaged Windows installer.

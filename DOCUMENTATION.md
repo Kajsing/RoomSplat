@@ -2,9 +2,9 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness added to the plan.
 Current milestone: Real Splat Pipeline Exploration + First Local Splat Adapter v1 complete.
-Next planned milestone: improve native browser splat rendering for Nerfstudio PLYs and increase training quality beyond the 1-iteration smoke splat.
+Next planned milestone: choose between improving native browser splat rendering/training quality or implementing Milestone 9, Learned Geometry Adapter Readiness, before attempting any direct LingBot-Map-style model integration.
 
 ## Latest completed milestone
 
@@ -45,6 +45,7 @@ npm --prefix frontend run build
 | 2026-04-30 | Video import before stream | Reduces MVP complexity and creates reproducible test inputs. |
 | 2026-04-30 | Browser + desktop debug viewer | Browser is user-facing; desktop viewer helps pipeline debugging. |
 | 2026-04-30 | `.ply` + `.glb` exports | Open formats useful for point clouds/splats and broader 3D tooling. |
+| 2026-07-22 | Learned geometry readiness before model integration | LingBot-Map is useful inspiration, but direct runtime adoption has checkpoint, download, CUDA, Windows, server-binding, and file-containment risks. |
 
 ## Known issues
 
@@ -68,6 +69,7 @@ npm --prefix frontend run build
 - Postshot Gaussian-style PLY samples with `f_dc_*` color coefficients can be shown as point-cloud fallback, but GaussianSplats3D currently times out on the local cactus Postshot sample before rendering it as real splats.
 - SuperSplat compressed PLY samples use packed chunk/sh fields and no ordinary vertex `x/y/z` positions, so they need explicit compressed splat support; current point-cloud fallback cannot display them.
 - Imported PLY/GLB/splat artifacts may use different up axes or appear upside down; the Three.js viewer now has source/flip/axis-conversion orientation presets for inspection.
+- LingBot-Map-style learned geometry is not yet integrated. Treat it as inspiration for adapter/output contracts until RoomSplat has model checkpoint safety, dependency isolation, local-only controls, and geometry bundle validation.
 
 ## Commands run
 
