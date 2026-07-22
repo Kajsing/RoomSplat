@@ -38,8 +38,11 @@ node --experimental-strip-types --test frontend/tests/*.test.ts
 19. Confirm incomplete or escaped learned geometry bundles are rejected and do not promote their primary artifacts.
 20. Run `learned_geometry_preflight` against a completed local output folder with `.complete.json` and `points.ply`.
 21. Run `import_learned_geometry` and confirm it writes `metadata/geometry_bundle.json`, `reconstruction/learned-point-cloud.ply`, and copied sidecars under `metadata/learned/<adapter-slug>/`.
-22. Confirm the backend is bound to `127.0.0.1` for local v1 use.
-23. Confirm generated data remains ignored by Git.
+22. Run `learned_runtime_preflight` with a tiny frame budget and confirm it reports GPU/PyTorch/checkpoint/runtime-budget diagnostics.
+23. If a configured local learned adapter and trusted checkpoint are present, run `learned_runtime_smoke` and confirm successful output imports through `metadata/geometry_bundle.json` and `reconstruction/learned-point-cloud.ply`.
+24. If dependencies/checkpoint/VRAM are not ready, confirm the learned runtime jobs report blocked diagnostics and do not create fake geometry.
+25. Confirm the backend is bound to `127.0.0.1` for local v1 use.
+26. Confirm generated data remains ignored by Git.
 
 ## Validation principle
 
@@ -108,6 +111,29 @@ Manual/API checks:
 - Confirm `GET /projects/{project_id}/geometry-bundle` returns `is_reconstruction: false`, `not_reconstruction: true`, capabilities, frame map, cameras/trajectory/intrinsics when present, warnings, and generated-data rules.
 - Confirm `GET /projects/{project_id}/artifacts` lists `reconstruction/learned-point-cloud.ply` as `predicted_point_cloud_ply` and `metadata/geometry_bundle.json` as `learned_geometry_bundle`.
 - Confirm missing project frames, missing `.complete.json`, escaped source-relative paths, missing primary PLY, missing declared sidecar folders, and out-of-range frame indices fail without writing a promoted learned artifact.
+
+## Local Learned Runtime Smoke Path
+
+Focused validation for Milestone 11:
+
+```bash
+python -m pytest backend/tests/test_learned_runtime.py pipeline/tests/test_learned_runtime_adapter.py backend/tests/test_learned_geometry_import.py pipeline/tests/test_learned_geometry_source_import.py
+node --experimental-strip-types --test frontend/tests/*.test.ts
+npm --prefix frontend run build
+```
+
+Manual/API checks:
+
+- Extract frames for a project first.
+- Configure a local adapter command with `ROOMSPLAT_LEARNED_RUNTIME_COMMAND` and optional `ROOMSPLAT_LEARNED_RUNTIME_ARGS`.
+- Store checkpoints under `ROOMSPLAT_LEARNED_MODEL_ROOT`; set `ROOMSPLAT_LEARNED_CHECKPOINT_PATH` relative to that root when possible.
+- Compute and set `ROOMSPLAT_LEARNED_CHECKPOINT_SHA256`; without a matching hash, preflight must block as an untrusted checkpoint.
+- Start with a small budget such as `max_frames: 12`, `frame_step: 1`, `image_max_size: 768`, `precision: fp16`, and `allow_cpu_offload: false`.
+- Create a `learned_runtime_preflight` job and confirm it reports command availability, PyTorch/CUDA diagnostics where visible, GPU/VRAM data where visible, checkpoint metadata, selected frame indices, runtime budget, expected outputs, warnings, and generated-data rules.
+- Create a `learned_runtime_smoke` job.
+- If preflight is blocked, confirm the result is one of the blocked statuses and that no `metadata/geometry_bundle.json` or `reconstruction/learned-point-cloud.ply` is created.
+- If preflight is ready, confirm selected frames are materialized under `metadata/learned-runtime/...`, the external adapter output is imported, and `GET /projects/{project_id}/artifacts` labels `reconstruction/learned-point-cloud.ply` as `predicted_point_cloud_ply`.
+- Confirm the viewer can inspect the predicted PLY and geometry bundle metadata with warnings that the output is learned/predicted geometry, not a verified metric reconstruction.
 
 ## Reconstruction Quality + Camera Path v1
 

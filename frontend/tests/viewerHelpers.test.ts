@@ -2,7 +2,12 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { VIEWER_ORIENTATION_OPTIONS, formatViewerOrientationMode } from '../src/viewer/orientation.ts'
-import { formatGeometryBundleSummary, formatGeometryCapabilities, isLearnedGeometryJob } from '../src/viewer/geometryBundleHelpers.ts'
+import {
+  formatGeometryBundleSummary,
+  formatGeometryCapabilities,
+  formatLearnedRuntimeStatus,
+  isLearnedGeometryJob,
+} from '../src/viewer/geometryBundleHelpers.ts'
 import { artifactPriority, formatBytes, formatViewerArtifactType, isThreeViewerArtifact, sortArtifactsForViewer } from '../src/viewer/viewerHelpers.ts'
 
 test('formats viewer artifact labels', () => {
@@ -74,7 +79,13 @@ test('formats learned geometry bundle helper summaries', () => {
   assert.equal(formatGeometryCapabilities(metadata), 'depth, confidence, pointmap')
   assert.equal(isLearnedGeometryJob('learned_geometry_preflight'), true)
   assert.equal(isLearnedGeometryJob('import_learned_geometry'), true)
+  assert.equal(isLearnedGeometryJob('learned_runtime_preflight'), true)
+  assert.equal(isLearnedGeometryJob('learned_runtime_smoke'), true)
   assert.equal(isLearnedGeometryJob('reconstruct_splat'), false)
+  assert.equal(
+    formatLearnedRuntimeStatus({ status: 'blocked_missing_checkpoint', selected_frame_indices: [0, 2, 4], blockers: ['checkpoint'] }),
+    'blocked_missing_checkpoint, 3 selected frames, 1 blockers',
+  )
 })
 
 function fakeArtifact(relativePath, artifactType) {

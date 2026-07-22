@@ -10,6 +10,7 @@ from app.services.debug_frame_cloud import DebugFrameCloudService
 from app.services.frame_extraction import FrameExtractionService
 from app.services.job_store import JobStore
 from app.services.learned_geometry_import import LearnedGeometryImportService
+from app.services.learned_runtime import LearnedRuntimeService
 from app.services.project_store import ProjectStore
 from app.services.reconstruction_jobs import ReconstructionService
 from app.services.splat_reconstruction import SplatReconstructionService
@@ -47,6 +48,10 @@ class LocalWorker:
             return self._run_learned_geometry_preflight(job)
         if job.job_type == "import_learned_geometry":
             return self._run_import_learned_geometry(job)
+        if job.job_type == "learned_runtime_preflight":
+            return self._run_learned_runtime_preflight(job)
+        if job.job_type == "learned_runtime_smoke":
+            return self._run_learned_runtime_smoke(job)
         raise ValueError(f"Unsupported job type: {job.job_type}")
 
     def _run_frame_extraction(self, job: JobResponse) -> dict[str, Any]:
@@ -138,6 +143,21 @@ class LocalWorker:
             primary_ply=job.params.get("primary_ply", "points.ply"),
         )
         self.job_store.append_log(job.project_id, job.id, "imported learned geometry bundle: metadata/geometry_bundle.json")
+        return result
+
+    def _run_learned_runtime_preflight(self, job: JobResponse) -> dict[str, Any]:
+        service = LearnedRuntimeService(self.project_store, self.config)
+        result = service.preflight(job.project_id, job.params)
+        self.job_store.append_log(job.project_id, job.id, f"learned runtime preflight: {result['status']}")
+        return result
+
+    def _run_learned_runtime_smoke(self, job: JobResponse) -> dict[str, Any]:
+        service = LearnedRuntimeService(self.project_store, self.config)
+        result = service.run_smoke(job.project_id, job.params)
+        if result.get("runtime_status") == "succeeded":
+            self.job_store.append_log(job.project_id, job.id, "learned runtime smoke imported geometry bundle")
+        else:
+            self.job_store.append_log(job.project_id, job.id, f"learned runtime smoke did not import geometry: {result.get('status')}")
         return result
 
 

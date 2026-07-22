@@ -2,13 +2,13 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness implemented; learned geometry import/preflight v1 implemented.
-Current milestone: Real Splat Pipeline Exploration + First Local Splat Adapter v1 complete.
-Next planned milestone: Milestone 11 - Local Learned Runtime Smoke Path. The next direction is to test an optional local learned-geometry runtime on the Windows/RTX 3080 Ti machine with strict GPU preflight, checkpoint safety, no automatic downloads, frame/keyframe limits, and import through the existing geometry bundle path. Tablet support is a stretch capture/viewer workflow, not a v1 on-device inference requirement.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness implemented; learned geometry import/preflight v1 implemented; local learned runtime smoke path implemented.
+Current milestone: Milestone 11 - Local Learned Runtime Smoke Path complete.
+Next planned milestone: run a real configured learned adapter/checkpoint smoke on the Windows/RTX 3080 Ti machine, then tune frame/resize/precision budget based on observed VRAM and viewer output. Tablet support remains a stretch capture/viewer workflow, not a v1 on-device inference requirement.
 
 ## Latest completed milestone
 
-Real Splat Pipeline Exploration + First Local Splat Adapter v1.
+Milestone 11 - Local Learned Runtime Smoke Path.
 
 ## How to run
 
@@ -70,9 +70,9 @@ npm --prefix frontend run build
 - Postshot Gaussian-style PLY samples with `f_dc_*` color coefficients can be shown as point-cloud fallback, but GaussianSplats3D currently times out on the local cactus Postshot sample before rendering it as real splats.
 - SuperSplat compressed PLY samples use packed chunk/sh fields and no ordinary vertex `x/y/z` positions, so they need explicit compressed splat support; current point-cloud fallback cannot display them.
 - Imported PLY/GLB/splat artifacts may use different up axes or appear upside down; the Three.js viewer now has source/flip/axis-conversion orientation presets for inspection.
-- LingBot-Map-style learned geometry is not yet integrated. Treat it as inspiration for adapter/output contracts until RoomSplat has model checkpoint safety, dependency isolation, local-only controls, and geometry bundle validation.
-- `metadata/geometry_bundle.json` now defines the first RoomSplat-native learned geometry bundle contract, but no LingBot-Map/VGGT runtime or checkpoint loader is integrated.
-- Learned geometry import/preflight can normalize completed local output folders, but still does not run LingBot-Map/VGGT or load checkpoints.
+- LingBot-Map-style learned geometry is now represented through adapter/output contracts and an optional local runtime-command smoke boundary. RoomSplat still does not vendor or directly depend on LingBot-Map/VGGT.
+- `metadata/geometry_bundle.json` defines the RoomSplat-native learned geometry bundle contract; learned runtime smoke output must import through that contract before it is listed as `predicted_point_cloud_ply`.
+- Learned geometry import/preflight can normalize completed local output folders. Learned runtime smoke can call a user-configured local adapter command after checkpoint SHA-256 and preflight checks, but it still does not download checkpoints or bundle a model runtime.
 - A 12 GB GPU is plausible for a small learned-runtime smoke path, but checkpoint size on disk is not equal to VRAM use. Runtime planning must account for activations, frame count, image size, PyTorch/CUDA overhead, precision, and offload behavior.
 - Tablet capture/viewing is a good stretch direction because the Galaxy Tab S10 Ultra-class camera can provide useful source video, but on-device learned inference is out of scope until the local PC runtime is proven.
 
@@ -80,6 +80,10 @@ npm --prefix frontend run build
 
 - `python --version`
 - `node --version`
+- `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 116 tests after Milestone 11 local learned runtime smoke path.
+- Bundled Node frontend helper tests - passed, 12 tests after Milestone 11.
+- Bundled Node Vite build from `frontend/` - passed after Milestone 11 with the existing large chunk warning.
+- `git diff --check` - passed after Milestone 11 with line-ending warnings only.
 - `python -m pytest backend/tests`
 - `npm --prefix frontend run build`
 - `C:\Users\chrkaj\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest backend/tests pipeline/tests` - passed
@@ -411,6 +415,43 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
 - Manual screenshot: ignored `data/manual-verification/recognizable-splat-chair-masked-1000-gaussian-fallback-large-view.png`.
 - Pixel check for the masked-chair screenshot: 598x830, 31,085 unique colors, 53,132 non-background pixels, 5,690 orange pixels, orange bbox 230x212 px.
 - Current assessment: this satisfies the first recognizable RoomSplat splat goal as a recognizable orange bowl-chair object from a real local Nerfstudio/Splatfacto reconstruction, with the limitation that browser native splat rendering still falls back.
+
+## Milestone 11 local learned runtime smoke path notes
+
+- Added optional learned runtime job types:
+  - `learned_runtime_preflight`
+  - `learned_runtime_smoke`
+- Added `pipeline.adapters.learned_runtime` for:
+  - bounded runtime params (`max_frames`, `frame_step`, `image_max_size`, `precision`, `allow_cpu_offload`);
+  - deterministic keyframe selection;
+  - GPU/VRAM probing through `nvidia-smi`;
+  - PyTorch/CUDA diagnostics through a configured runtime Python;
+  - checkpoint containment under `ROOMSPLAT_LEARNED_MODEL_ROOT`;
+  - checkpoint SHA-256 allowlist validation;
+  - conservative 12 GB GPU runtime-budget reporting;
+  - local adapter command invocation with a shell-free argument list and redacted checkpoint diagnostics.
+- Added backend `LearnedRuntimeService`.
+- `learned_runtime_preflight` writes `metadata/learned_runtime_preflight.json` and reports blocked diagnostics without running the adapter.
+- `learned_runtime_smoke`:
+  - reads existing extracted frames;
+  - materializes selected frames under `metadata/learned-runtime/...`;
+  - calls the configured local adapter command only when preflight is ready;
+  - expects `.complete.json` and `points.ply` in the adapter output folder;
+  - imports successful output through `LearnedGeometryImportService`;
+  - returns blocked or failed diagnostics without creating fake geometry.
+- Added `.env.example` config for local learned runtime command, args, diagnostics Python, model root, checkpoint path, checkpoint SHA-256, cache dir, VRAM budget, and timeout.
+- Updated frontend job controls for learned runtime preflight/smoke and runtime budget params.
+- Added focused backend, pipeline, and frontend helper tests.
+- Validation:
+  - `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 116 tests.
+  - Bundled Node frontend helper tests - passed, 12 tests.
+  - Bundled Node Vite build from `frontend/` - passed with the existing large chunk warning.
+  - `git diff --check` - passed with line-ending warnings only.
+- No LingBot-Map/VGGT dependency, automatic checkpoint download, cloud dependency, public server binding, or committed checkpoint/output data was added.
+- Remaining future work:
+  - Point `ROOMSPLAT_LEARNED_RUNTIME_COMMAND` at a real LingBot/VGGT-style wrapper.
+  - Run a real 12 GB GPU smoke and tune max frames, image size, precision, and offload.
+  - Add richer viewer readers for depth, confidence, mask, pointmap, and per-frame learned sidecars.
 
 ## Milestone 10 learned geometry import/preflight notes
 

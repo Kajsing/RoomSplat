@@ -75,6 +75,26 @@ for completed local learned-output folders:
 These helpers are for preflight and normalization only. They do not import LingBot-Map,
 load model checkpoints, run inference, download weights, or start an external viewer.
 
+`pipeline.adapters.learned_runtime` provides the first controlled runtime boundary for
+local feed-forward geometry smoke tests:
+
+- `build_learned_runtime_params()` validates bounded runtime params such as `max_frames`, `frame_step`, `image_max_size`, `precision`, and `allow_cpu_offload`.
+- `select_keyframes()` deterministically samples extracted frames before execution.
+- `preflight_learned_runtime()` reports configured command readiness, PyTorch/CUDA diagnostics, `nvidia-smi` VRAM data, checkpoint containment and SHA-256 trust, selected frames, runtime budget, expected outputs, and generated-data rules.
+- `run_learned_runtime_command()` invokes the configured local adapter with an argument list and redacts the checkpoint path from stored diagnostics.
+
+Runtime adapter command contract:
+
+```text
+<command> <fixed args> --frames-dir <selected-frames> --output-dir <output-dir> --checkpoint <checkpoint> --max-frames <n> --image-max-size <px> --precision <fp32|fp16|bfloat16> --frame-index-map <comma-separated original frame indices> [--allow-cpu-offload]
+```
+
+The command must write a completed learned-output folder under the provided `--output-dir`.
+At minimum, RoomSplat expects `.complete.json` and `points.ply`; `traj.txt`,
+`intrinsics.txt`, `sampling.json`, and depth/confidence/mask/pointmap sidecars are imported
+when declared by completion metadata. Successful output is imported through the existing
+geometry bundle flow. Blocked or failed runtime jobs must not write placeholder geometry.
+
 Current adapters:
 
 - `colmap`: camera poses and sparse conventional point cloud.

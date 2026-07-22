@@ -61,6 +61,8 @@ JobType = Literal[
     "reconstruct_splat",
     "learned_geometry_preflight",
     "import_learned_geometry",
+    "learned_runtime_preflight",
+    "learned_runtime_smoke",
 ]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 ArtifactType = Literal[

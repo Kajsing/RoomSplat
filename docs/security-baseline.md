@@ -88,6 +88,23 @@ Controls:
 - Imported learned geometry remains `is_reconstruction: false` and `not_reconstruction: true`.
 - The import jobs do not run LingBot-Map, load checkpoints, download models, or start external viewers.
 
+### Hardened: local learned runtime smoke boundary
+
+Milestone 11 adds `learned_runtime_preflight` and `learned_runtime_smoke` jobs. These jobs can invoke a user-configured local adapter command, but only after preflight confirms the configured runtime boundary.
+
+Controls:
+
+- No automatic model or checkpoint download is implemented.
+- Checkpoints must be user-supplied under `ROOMSPLAT_LEARNED_MODEL_ROOT`.
+- Checkpoint paths are resolved under the model root and reject paths outside that root.
+- Smoke execution requires `ROOMSPLAT_LEARNED_CHECKPOINT_SHA256` to match the checkpoint SHA-256.
+- The runtime command is invoked with an argument list, not through a shell string.
+- The checkpoint path is redacted from stored command diagnostics.
+- Selected frames and runtime output folders are written under the selected project's ignored metadata folder.
+- Successful runtime output is not promoted directly; it must pass the existing learned geometry import and geometry bundle validation.
+- Blocked statuses such as `blocked_missing_dependencies`, `blocked_missing_checkpoint`, `blocked_untrusted_checkpoint`, and `blocked_insufficient_vram` do not create fake geometry artifacts.
+- Frontend controls expose bounded max frames, frame step, image max size, precision, and CPU/offload flags without offering automatic downloads or public server exposure.
+
 ## Reviewed controls
 
 - Project IDs are restricted to 32 lowercase hex characters before folder resolution.
@@ -99,6 +116,8 @@ Controls:
 - Artifact listing and downloads only expose files that resolve inside the project folder.
 - Learned geometry bundle paths are rejected if absolute, parent-relative, escaped through symlinks, missing when required, or inconsistent with declared artifact extensions.
 - Learned geometry import source-relative paths are rejected if absolute, parent-relative, missing when declared, or inconsistent with the completed source-folder contract.
+- Learned runtime checkpoint paths are restricted to the configured model root and must match the configured SHA-256 before execution.
+- Learned runtime selected frames and output folders are contained under the selected project directory.
 - Export creation writes only under `exports/` and records `real` versus `placeholder` status.
 - Placeholder exports are explicit debug/workflow artifacts and are not labeled as real reconstruction.
 - Frame Room Cloud outputs are explicit debug viewer artifacts and are not labeled as real reconstruction.
@@ -111,7 +130,7 @@ Controls:
 - Large or malformed media can still consume CPU/disk during parsing or ffmpeg extraction within the configured upload and timeout limits.
 - API responses currently include local filesystem paths for operator transparency; this is acceptable for local-only v1 but should be revisited before LAN or shared use.
 - Future real reconstruction adapters must preserve the same containment checks and avoid shell invocation.
-- Future learned adapters must not use untrusted pickle checkpoints, automatic downloads, arbitrary output paths, or `0.0.0.0` viewer binding without a new security review.
+- Future learned adapters must not use untrusted pickle checkpoints, automatic downloads, arbitrary output paths, or `0.0.0.0` viewer binding without a new security review. The current smoke path gates checkpoint use by location and SHA-256, but the external adapter runtime itself is still trusted local operator code.
 - Learned geometry import currently trusts the local operator to choose an intended source folder; before exposing the backend beyond localhost, this external local read capability needs authentication and access controls.
 - Real GLB conversion remains future work even though the browser can now render GLB scene artifacts when they exist.
 - The current security baseline is focused and artifact-backed, not a complete production penetration test.

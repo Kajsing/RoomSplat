@@ -15,6 +15,15 @@ class AppConfig(BaseModel):
     ns_train_path: str | None = None
     ns_export_path: str | None = None
     nerfstudio_python_path: str | None = None
+    learned_runtime_command: str | None = None
+    learned_runtime_args: str | None = None
+    learned_runtime_python_path: str | None = None
+    learned_checkpoint_path: str | None = None
+    learned_checkpoint_sha256: str | None = None
+    learned_model_root: Path = Path("data") / "models"
+    learned_cache_dir: Path = Path("data") / "cache" / "learned-runtime"
+    learned_min_free_vram_mb: int = 10_000
+    learned_runtime_timeout_seconds: int = 30 * 60
     max_upload_bytes: int = 2 * 1024 * 1024 * 1024
     ffmpeg_timeout_seconds: int = 30 * 60
 
@@ -41,6 +50,17 @@ def get_config() -> AppConfig:
     ns_train_path = env_value("ROOMSPLAT_NS_TRAIN_PATH")
     ns_export_path = env_value("ROOMSPLAT_NS_EXPORT_PATH")
     nerfstudio_python_path = env_value("ROOMSPLAT_NERFSTUDIO_PYTHON_PATH")
+    learned_runtime_command = env_value("ROOMSPLAT_LEARNED_RUNTIME_COMMAND")
+    learned_runtime_args = env_value("ROOMSPLAT_LEARNED_RUNTIME_ARGS")
+    learned_runtime_python_path = env_value("ROOMSPLAT_LEARNED_RUNTIME_PYTHON_PATH")
+    learned_checkpoint_path = env_value("ROOMSPLAT_LEARNED_CHECKPOINT_PATH")
+    learned_checkpoint_sha256 = env_value("ROOMSPLAT_LEARNED_CHECKPOINT_SHA256")
+    learned_model_root = Path(env_value("ROOMSPLAT_LEARNED_MODEL_ROOT") or AppConfig().learned_model_root)
+    learned_cache_dir = Path(env_value("ROOMSPLAT_LEARNED_CACHE_DIR") or AppConfig().learned_cache_dir)
+    learned_min_free_vram_mb = int(env_value("ROOMSPLAT_LEARNED_MIN_FREE_VRAM_MB") or AppConfig().learned_min_free_vram_mb)
+    learned_runtime_timeout_seconds = int(
+        env_value("ROOMSPLAT_LEARNED_RUNTIME_TIMEOUT_SECONDS") or AppConfig().learned_runtime_timeout_seconds
+    )
     max_upload_mb = env_value("ROOMSPLAT_MAX_UPLOAD_MB", "MAX_UPLOAD_MB")
     max_upload_bytes = int(max_upload_mb) * 1024 * 1024 if max_upload_mb else AppConfig().max_upload_bytes
     timeout_seconds = int(env_value("ROOMSPLAT_FFMPEG_TIMEOUT_SECONDS") or AppConfig().ffmpeg_timeout_seconds)
@@ -53,6 +73,15 @@ def get_config() -> AppConfig:
         ns_train_path=ns_train_path,
         ns_export_path=ns_export_path,
         nerfstudio_python_path=nerfstudio_python_path,
+        learned_runtime_command=learned_runtime_command,
+        learned_runtime_args=learned_runtime_args,
+        learned_runtime_python_path=learned_runtime_python_path,
+        learned_checkpoint_path=learned_checkpoint_path,
+        learned_checkpoint_sha256=learned_checkpoint_sha256,
+        learned_model_root=learned_model_root,
+        learned_cache_dir=learned_cache_dir,
+        learned_min_free_vram_mb=learned_min_free_vram_mb,
+        learned_runtime_timeout_seconds=learned_runtime_timeout_seconds,
         max_upload_bytes=max_upload_bytes,
         ffmpeg_timeout_seconds=timeout_seconds,
     )

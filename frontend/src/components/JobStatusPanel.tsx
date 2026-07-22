@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createJob, getJob, Job, listJobs, Project } from '../api'
-import { isLearnedGeometryJob } from '../viewer/geometryBundleHelpers'
+import { formatLearnedRuntimeStatus, isLearnedGeometryJob } from '../viewer/geometryBundleHelpers'
 
 type ReconstructionPreset = 'quick' | 'balanced' | 'detail'
 type ReconstructionMatcher = 'exhaustive' | 'sequential'
@@ -23,6 +23,12 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
   const [learnedSourceDir, setLearnedSourceDir] = useState('')
   const [learnedSourceAdapter, setLearnedSourceAdapter] = useState('local-learned-geometry')
   const [learnedPrimaryPly, setLearnedPrimaryPly] = useState('points.ply')
+  const [learnedRuntimeAdapter, setLearnedRuntimeAdapter] = useState('local-learned-runtime')
+  const [learnedMaxFrames, setLearnedMaxFrames] = useState('12')
+  const [learnedFrameStep, setLearnedFrameStep] = useState('1')
+  const [learnedImageMaxSize, setLearnedImageMaxSize] = useState('768')
+  const [learnedPrecision, setLearnedPrecision] = useState('fp16')
+  const [learnedAllowCpuOffload, setLearnedAllowCpuOffload] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -103,6 +109,14 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
     await startLearnedGeometryJob('import_learned_geometry')
   }
 
+  async function handleLearnedRuntimePreflight() {
+    await startLearnedRuntimeJob('learned_runtime_preflight')
+  }
+
+  async function handleLearnedRuntimeSmoke() {
+    await startLearnedRuntimeJob('learned_runtime_smoke')
+  }
+
   async function startLearnedGeometryJob(jobType: 'learned_geometry_preflight' | 'import_learned_geometry') {
     if (!project) return
     setError(null)
@@ -117,6 +131,28 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
       setJobs((currentJobs) => upsertJob(currentJobs, job))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not start learned geometry job')
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
+  async function startLearnedRuntimeJob(jobType: 'learned_runtime_preflight' | 'learned_runtime_smoke') {
+    if (!project) return
+    setError(null)
+    setIsStarting(true)
+    try {
+      const job = await createJob(project.id, jobType, {
+        adapter: learnedRuntimeAdapter,
+        max_frames: Number(learnedMaxFrames),
+        frame_step: Number(learnedFrameStep),
+        image_max_size: Number(learnedImageMaxSize),
+        precision: learnedPrecision,
+        allow_cpu_offload: learnedAllowCpuOffload,
+      })
+      onJobChange(job)
+      setJobs((currentJobs) => upsertJob(currentJobs, job))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not start learned runtime job')
     } finally {
       setIsStarting(false)
     }
@@ -222,6 +258,67 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
         </button>
       </div>
 
+      <div style={learnedOptionsStyle}>
+        <label style={inputLabelStyle}>
+          Runtime adapter
+          <input
+            onChange={(event) => setLearnedRuntimeAdapter(event.target.value)}
+            style={textInputStyle}
+            type="text"
+            value={learnedRuntimeAdapter}
+          />
+        </label>
+        <label style={inputLabelStyle}>
+          Max frames
+          <input
+            min={1}
+            onChange={(event) => setLearnedMaxFrames(event.target.value)}
+            style={numberInputStyle}
+            type="number"
+            value={learnedMaxFrames}
+          />
+        </label>
+        <label style={inputLabelStyle}>
+          Frame step
+          <input
+            min={1}
+            onChange={(event) => setLearnedFrameStep(event.target.value)}
+            style={numberInputStyle}
+            type="number"
+            value={learnedFrameStep}
+          />
+        </label>
+        <label style={inputLabelStyle}>
+          Image max
+          <input
+            min={128}
+            onChange={(event) => setLearnedImageMaxSize(event.target.value)}
+            style={numberInputStyle}
+            type="number"
+            value={learnedImageMaxSize}
+          />
+        </label>
+        <label style={inputLabelStyle}>
+          Precision
+          <select onChange={(event) => setLearnedPrecision(event.target.value)} style={selectStyle} value={learnedPrecision}>
+            <option value="fp16">fp16</option>
+            <option value="bfloat16">bfloat16</option>
+            <option value="fp32">fp32</option>
+          </select>
+        </label>
+        <label style={checkLabelStyle}>
+          <input checked={learnedAllowCpuOffload} onChange={(event) => setLearnedAllowCpuOffload(event.target.checked)} type="checkbox" />
+          CPU/offload
+        </label>
+        <button disabled={!project || isStarting} onClick={handleLearnedRuntimePreflight} style={secondaryButtonStyle} type="button">
+          Preflight local learned runtime
+        </button>
+        <button disabled={!project || isStarting} onClick={handleLearnedRuntimeSmoke} style={buttonStyle} type="button">
+          Run learned smoke
+        </button>
+        <span style={hintStyle}>Uses local checkpoints only; no automatic model download.</span>
+      </div>
+
       {activeJob ? (
         <div style={activeJobStyle}>
           <strong>{formatJobType(activeJob.job_type)}</strong>
@@ -264,6 +361,8 @@ function formatJobType(jobType: Job['job_type']) {
     reconstruct_splat: 'Splat reconstruction',
     learned_geometry_preflight: 'Learned geometry preflight',
     import_learned_geometry: 'Learned geometry import',
+    learned_runtime_preflight: 'Learned runtime preflight',
+    learned_runtime_smoke: 'Learned runtime smoke',
   }
   return labels[jobType]
 }
@@ -288,6 +387,10 @@ function summarizeResult(job: Job) {
     return `${status}${warning}`
   }
   if (isLearnedGeometryJob(job.job_type)) {
+    if (job.job_type === 'learned_runtime_preflight' || job.job_type === 'learned_runtime_smoke') {
+      if (job.result?.runtime_status === 'succeeded') return `imported ${job.result?.frame_count ?? '?'} predicted frames`
+      return formatLearnedRuntimeStatus(job.result)
+    }
     if (job.job_type === 'learned_geometry_preflight') {
       return `${job.result?.frame_count ?? '?'} mapped frames, ${job.result?.sidecar_count ?? '?'} sidecars`
     }

@@ -51,6 +51,8 @@ export type JobType =
   | 'reconstruct_splat'
   | 'learned_geometry_preflight'
   | 'import_learned_geometry'
+  | 'learned_runtime_preflight'
+  | 'learned_runtime_smoke'
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed'
 
 export type Job = {

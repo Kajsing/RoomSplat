@@ -83,3 +83,11 @@ Mitigation:
 - Report missing CUDA/GPU/model dependencies as blocked diagnostics.
 - Keep all generated depth, NPZ, point, video, mask, and checkpoint outputs contained under the ignored project data directory.
 - Do not expose no-auth viewers or APIs beyond `127.0.0.1`.
+
+Current Milestone 11 controls:
+
+- Checkpoints must resolve under `ROOMSPLAT_LEARNED_MODEL_ROOT`.
+- `ROOMSPLAT_LEARNED_CHECKPOINT_SHA256` must match before smoke execution is considered ready.
+- `learned_runtime_preflight` reports GPU, PyTorch/CUDA, checkpoint, selected frames, and VRAM budget diagnostics before runtime execution.
+- `learned_runtime_smoke` imports successful output through the geometry bundle path and otherwise returns blocked diagnostics without fake geometry.
+- A 12 GB RTX 3080 Ti is a plausible small-smoke target, but checkpoint size on disk is not a VRAM estimate; frame count, resolution, precision, activations, and runtime overhead still need caps.

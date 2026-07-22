@@ -14,6 +14,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Deterministic frame extraction into project `frames/` folders.
 - Local background jobs for frame extraction, reconstruction-spike orchestration, debug frame planes, real sparse point-cloud reconstruction, and Nerfstudio-backed splat reconstruction readiness/training/export.
 - Local learned-geometry preflight/import jobs for completed output folders with `.complete.json`, `points.ply`, trajectory/intrinsics files, and optional depth/confidence/mask/pointmap sidecars.
+- Controlled local learned-runtime preflight/smoke jobs that can check GPU/CUDA/PyTorch/checkpoint readiness, apply a deterministic frame budget, invoke a local adapter command, and import successful output through the geometry bundle path.
 - Artifact discovery/download APIs with explicit labels for debug frame clouds, point clouds, real splats, GLB, and debug reports.
 - Browser Three.js viewer with orbit/inspect controls, large-view mode, camera presets, orientation presets, stats, screenshot capture, frame markers for debug frame clouds, camera/path overlays for COLMAP point clouds, point cloud PLY, real `splat_ply` fallback viewing, and GLB scenes.
 - Export APIs and UI controls for `.ply` / `.glb` outputs, including explicit placeholder labels for debug exports.
@@ -32,7 +33,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - No native Android app.
 - No cloud processing or user accounts.
 - No construction-grade measurement guarantees.
-- No built-in LingBot-Map/VGGT runtime, checkpoint loader, or automatic model download. Learned geometry import only normalizes files that already exist on local disk.
+- No built-in LingBot-Map/VGGT dependency or automatic model download. Learned runtime jobs only use a user-configured local adapter command and allowlisted local checkpoints.
 
 ## Windows prerequisites
 
@@ -42,10 +43,13 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Optional for MP4/MOV/AVI/MKV/WebM extraction: ffmpeg on `PATH` or configured with `ROOMSPLAT_FFMPEG_PATH`.
 - Optional for real sparse point-cloud reconstruction: COLMAP on `PATH` or configured with `ROOMSPLAT_COLMAP_PATH`.
 - Optional for real Gaussian Splatting reconstruction: a separate conda-based Nerfstudio/Splatfacto environment with `ns-process-data`, `ns-train`, `ns-export`, PyTorch/CUDA, CUDA toolkit, and Visual Studio C++ Build Tools.
+- Optional for learned-runtime smoke tests: a separate local adapter/runtime environment plus a checkpoint stored under `ROOMSPLAT_LEARNED_MODEL_ROOT` with its expected SHA-256 configured.
 
 GIF fixtures and tests work without ffmpeg. Real splat training is wired through the adapter and can reach local Nerfstudio/COLMAP on this machine.
 
 Current local machine note from the July 4, 2026 preflight: RTX 3080 Ti, Visual Studio Build Tools, FFmpeg, COLMAP 3.9.1 no-CUDA, micromamba-based Nerfstudio, PyTorch 2.1.2+cu118, `nvcc`, Nerfstudio 1.1.5, and precompiled `gsplat==1.4.0+pt21cu118` are present/configured locally. The Objectron cup `reconstruct_splat` path produces a real `reconstruction/splat.ply` with `status: succeeded`.
+
+Learned runtime planning note: the target Windows machine has an RTX 3080 Ti with 12 GB VRAM, which is plausible for small feed-forward geometry smoke tests. A 5 GB checkpoint on disk can still require much more than 5 GB VRAM during inference because activations, frame count, image size, CUDA/PyTorch overhead, precision, and offload behavior all matter.
 
 ## Configure
 
@@ -58,6 +62,13 @@ Copy `.env.example` to `.env` if you want local overrides. The backend reads `.e
 - `ROOMSPLAT_NERFSTUDIO_BIN_DIR=` optional path to the Nerfstudio environment `Scripts`/`bin` folder
 - `ROOMSPLAT_NERFSTUDIO_PYTHON_PATH=` optional path to that environment's `python.exe` for environment-specific readiness checks
 - `ROOMSPLAT_NS_PROCESS_DATA_PATH=`, `ROOMSPLAT_NS_TRAIN_PATH`, `ROOMSPLAT_NS_EXPORT_PATH` optional per-command overrides
+- `ROOMSPLAT_LEARNED_RUNTIME_COMMAND=` optional local learned adapter executable or wrapper
+- `ROOMSPLAT_LEARNED_RUNTIME_ARGS=` optional fixed args for the adapter command
+- `ROOMSPLAT_LEARNED_RUNTIME_PYTHON_PATH=` optional runtime Python for PyTorch/CUDA diagnostics
+- `ROOMSPLAT_LEARNED_MODEL_ROOT=./data/models`
+- `ROOMSPLAT_LEARNED_CHECKPOINT_PATH=` checkpoint path relative to model root, or absolute path contained under model root
+- `ROOMSPLAT_LEARNED_CHECKPOINT_SHA256=` expected checkpoint SHA-256; required before smoke execution is considered trusted
+- `ROOMSPLAT_LEARNED_MIN_FREE_VRAM_MB=10000`
 - `VITE_ROOMSPLAT_API_URL=http://127.0.0.1:8000`
 
 Keep generated project data under `data/` or another ignored local folder.
@@ -101,15 +112,19 @@ Open the Vite URL shown in the terminal, usually `http://127.0.0.1:5173`.
 5. Run point cloud reconstruction to create a real COLMAP sparse point cloud at `reconstruction/sparse-point-cloud.ply`. Choose quick/balanced/detail presets as guidance for the extraction density you want to compare.
 6. Run splat reconstruction to attempt Nerfstudio/Splatfacto. If dependencies are missing, inspect the generated readiness diagnosis; if dependencies are ready, the job writes `reconstruction/splat.ply`.
 7. Run the reconstruction spike if you want the older multi-adapter dependency report.
-8. If you have a completed local learned-geometry output folder, run learned geometry preflight, then import it. The expected LingBot/BSS-inspired shape is `.complete.json`, a primary `points.ply`, optional `traj.txt`, `intrinsics.txt`, `sampling.json`, and optional `depth/`, `confidence/`, `mask/`, or `points/` sidecar folders.
-9. Inspect listed artifacts/debug reports in the browser viewer.
-10. Export `.ply` or `.glb` artifacts when available.
+8. Run learned runtime preflight when you have configured a local adapter/checkpoint. Start with a small budget such as 12 frames, frame step 1, image max 768, and fp16.
+9. Run learned smoke only after preflight is ready. If it succeeds, RoomSplat imports the generated output as `predicted_point_cloud_ply` plus `metadata/geometry_bundle.json`; if it is blocked, it writes diagnostics without fake geometry.
+10. If you have a completed local learned-geometry output folder from another tool, run learned geometry preflight, then import it. The expected LingBot/BSS-inspired shape is `.complete.json`, a primary `points.ply`, optional `traj.txt`, `intrinsics.txt`, `sampling.json`, and optional `depth/`, `confidence/`, `mask/`, or `points/` sidecar folders.
+11. Inspect listed artifacts/debug reports in the browser viewer.
+12. Export `.ply` or `.glb` artifacts when available.
 
 Placeholder exports are allowed only for workflow/debug testing and are labeled as placeholders.
 Debug frame plane artifacts are also debug-only and must not be described as reconstruction output.
 
 If COLMAP is not installed, the point-cloud reconstruction job fails with setup guidance instead of writing fake output.
 If Nerfstudio is not installed, the splat reconstruction job succeeds as a readiness check, writes `metadata/splat_reconstruction.json`, and does not write `reconstruction/splat.ply`. If Nerfstudio is installed but training/export fails, the same metadata file records the failed command output and still avoids fake splat output.
+
+Learned runtime smoke is optional and adapter-driven. RoomSplat does not import LingBot-Map/VGGT directly, does not download weights, and does not load checkpoints unless they are under the configured model root and their SHA-256 matches `ROOMSPLAT_LEARNED_CHECKPOINT_SHA256`. A ready smoke job materializes selected frames under the ignored project metadata folder, calls the configured adapter command with bounded params, expects a completed local output folder, and imports it through the learned geometry bundle path.
 
 Learned geometry import does not run a model. It copies a validated local output folder into the selected project, writes `metadata/geometry_bundle.json`, copies the primary PLY to `reconstruction/learned-point-cloud.ply`, and labels it `predicted_point_cloud_ply`. The bundle remains `is_reconstruction: false` and `not_reconstruction: true` until a future adapter explicitly promotes or converts it into a verified reconstruction artifact.
 
@@ -150,6 +165,8 @@ node node_modules/vite/bin/vite.js build
 
 Generated videos, frames, reconstruction outputs, splats, checkpoints, and exports belong under `data/` or per-project output folders and must not be committed.
 
+Learned model checkpoints should live under `data/models` or another ignored folder configured as `ROOMSPLAT_LEARNED_MODEL_ROOT`. The learned runtime cache should stay under `data/cache/learned-runtime` or another ignored local cache.
+
 ## Capture and output notes
 
 - Start with short, slow clips of a small room or object.
@@ -158,6 +175,7 @@ Generated videos, frames, reconstruction outputs, splats, checkpoints, and expor
 - `point_cloud_ply` is a conventional point cloud.
 - `predicted_point_cloud_ply` is learned/predicted geometry imported through a validated geometry bundle; it is not a Gaussian splat, a COLMAP point cloud, or a verified metric scan.
 - `learned_geometry_bundle` is metadata for predicted geometry and sidecars; it is inspectable as JSON and is not itself renderable 3D.
+- `learned_runtime_preflight` and `learned_runtime_smoke` are local adapter jobs. They should report blocked diagnostics such as missing dependencies, missing checkpoints, untrusted checkpoints, or insufficient VRAM instead of writing placeholder geometry.
 - `debug_frame_cloud_ply` is a deterministic viewer/debug point cloud sampled from flat extracted frames and placed in 3D; it is not a reconstruction.
 - `reconstruction/sparse-point-cloud.ply` is a real COLMAP sparse `point_cloud_ply` artifact when point-cloud reconstruction succeeds.
 - `splat_ply` is Gaussian splat data stored in a PLY-like format, not a conventional point cloud.

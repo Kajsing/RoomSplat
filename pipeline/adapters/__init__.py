@@ -22,6 +22,14 @@ from pipeline.adapters.learned_geometry_import import (
     learned_geometry_expected_sidecars,
     learned_geometry_import_assessment,
 )
+from pipeline.adapters.learned_runtime import (
+    LearnedRuntimeConfig,
+    LearnedRuntimeError,
+    LearnedRuntimeParams,
+    build_learned_runtime_params,
+    preflight_learned_runtime,
+    select_keyframes,
+)
 from pipeline.adapters.nerfstudio_adapter import NerfstudioSplatfactoAdapter
 from pipeline.adapters.open3d_adapter import Open3DDebugAdapter
 
@@ -36,6 +44,9 @@ __all__ = [
     "LearnedGeometryImportError",
     "LearnedGeometrySidecarCandidate",
     "LearnedGeometrySourceSummary",
+    "LearnedRuntimeConfig",
+    "LearnedRuntimeError",
+    "LearnedRuntimeParams",
     "NerfstudioSplatfactoAdapter",
     "Open3DDebugAdapter",
     "PREDICTED_POINT_CLOUD_ARTIFACT_TYPE",
@@ -47,5 +58,8 @@ __all__ = [
     "learned_geometry_expected_outputs",
     "learned_geometry_expected_sidecars",
     "learned_geometry_import_assessment",
+    "build_learned_runtime_params",
+    "preflight_learned_runtime",
+    "select_keyframes",
     "validate_geometry_expected_outputs",
 ]

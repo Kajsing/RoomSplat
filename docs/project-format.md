@@ -11,8 +11,14 @@ project-root/
     debug_frame_cloud.json
     reconstruction.json
     splat_reconstruction.json
+    learned_runtime_preflight.json
+    learned_runtime_smoke.json
     geometry_bundle.json
     reconstruction_spike.json
+    learned-runtime/
+      <adapter-slug-timestamp>/
+        selected-frames/
+        output/
     learned/
       <adapter-slug>/
         .complete.json
@@ -155,6 +161,15 @@ The LingBot/BSS-inspired source-folder shape is:
 
 The source folder may live outside the RoomSplat project because it is read-only input. All copied outputs and all bundle-declared paths must end inside the selected project folder.
 
+RoomSplat can also run a configured local learned-runtime smoke path:
+
+- `learned_runtime_preflight` validates command/checkpoint/GPU budget readiness and writes `metadata/learned_runtime_preflight.json`.
+- `learned_runtime_smoke` materializes selected frames under `metadata/learned-runtime/<adapter-slug-timestamp>/selected-frames/`.
+- The configured adapter command writes its completed output folder under `metadata/learned-runtime/<adapter-slug-timestamp>/output/`.
+- Successful smoke output is imported through the same `import_learned_geometry` flow and must produce a valid `metadata/geometry_bundle.json`.
+- Blocked smoke output writes diagnostics only; it must not create `reconstruction/learned-point-cloud.ply` or promote fake artifacts.
+- Checkpoints are not stored in project folders. They must live under `ROOMSPLAT_LEARNED_MODEL_ROOT` and match `ROOMSPLAT_LEARNED_CHECKPOINT_SHA256`.
+
 Required/high-value fields:
 
 - `schema_version: roomsplat.geometry_bundle.v1`
@@ -208,6 +223,7 @@ Artifact listing sorts real `reconstruction/splat.ply` first when present, then 
 - `debug_frame_cloud.json` records Frame Room Cloud metadata, including `mode: debug` and `not_reconstruction: true`.
 - `reconstruction.json` records real sparse point-cloud reconstruction metadata, including `mode: reconstruction` and `is_reconstruction: true`.
 - `splat_reconstruction.json` records Nerfstudio/Splatfacto readiness or successful splat output. Missing dependencies are diagnostic metadata, not a generated reconstruction artifact.
+- `learned_runtime_preflight.json` and `learned_runtime_smoke.json` record optional local learned-runtime diagnostics. Blocked diagnostics are not generated geometry.
 - `geometry_bundle.json` records learned/predicted geometry output contracts. It must validate complete before its primary artifacts are labeled as learned geometry outputs.
 - Job metadata records queued/running/succeeded/failed status, params, result, error, timestamps, and log path.
 - All paths must stay inside the configured data directory.

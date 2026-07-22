@@ -94,6 +94,14 @@ frames -> Nerfstudio ns-process-data images -> ns-train splatfacto -> ns-export 
 
 `reconstruct_splat` records readiness metadata even when training cannot run locally. Future learned or generative splat methods should fit behind the same boundary by consuming frames and/or poses and emitting the same `splat_ply` artifact contract.
 
+The first learned-runtime boundary is intentionally adapter-command based:
+
+```text
+frames -> deterministic keyframe selection -> local learned runtime command -> completed learned output folder -> import_learned_geometry -> metadata/geometry_bundle.json + reconstruction/learned-point-cloud.ply
+```
+
+The backend performs preflight before invoking a learned runtime. It checks configured command availability, optional PyTorch/CUDA diagnostics, `nvidia-smi` VRAM signals, checkpoint containment under `ROOMSPLAT_LEARNED_MODEL_ROOT`, checkpoint SHA-256 allowlisting, and frame/resize/precision/offload budget. RoomSplat does not download models automatically and does not treat blocked runtime diagnostics as geometry.
+
 ### Project storage
 
 Each project gets its own folder. The backend is the only layer that should write to project folders directly.
@@ -141,6 +149,17 @@ Current `reconstruct_splat` behavior:
 - If dependencies are ready, runs local Nerfstudio commands and writes `reconstruction/splat.ply`.
 - Sorts a real `splat_ply` artifact above sparse point clouds in the viewer artifact list.
 
+Current `learned_runtime_smoke` behavior:
+
+- Reads extracted frames from the project.
+- Applies deterministic frame selection using `max_frames` and `frame_step`.
+- Writes selected-frame materialization under `metadata/learned-runtime/...`.
+- Requires `ROOMSPLAT_LEARNED_RUNTIME_COMMAND`, a checkpoint under `ROOMSPLAT_LEARNED_MODEL_ROOT`, and matching `ROOMSPLAT_LEARNED_CHECKPOINT_SHA256` before execution is considered ready.
+- Passes bounded args to the configured local adapter: frames dir, output dir, checkpoint, max frames, image max size, precision, and frame index map.
+- Expects the adapter to write a completed learned-output folder with `.complete.json` and `points.ply`.
+- Imports successful output through `LearnedGeometryImportService`.
+- Returns blocked diagnostics for missing dependencies, missing checkpoint, untrusted checkpoint, or insufficient VRAM without creating placeholder geometry.
+
 ### Export boundary
 
 The export service creates user-facing files in `exports/` from backend-listed artifacts and writes metadata in `metadata/exports/`.
@@ -164,9 +183,10 @@ Current export behavior:
 8. Real sparse point-cloud reconstruction consumes frames through local COLMAP and writes `reconstruction/sparse-point-cloud.ply` plus `metadata/reconstruction.json`, including parsed `cameras.txt`, `images.txt`, and `points3D.txt` summary data.
 9. Splat reconstruction consumes frames through the Nerfstudio adapter, writes readiness/result metadata, and produces `reconstruction/splat.ply` when dependencies are installed.
 10. Learned geometry preflight/import can inspect a completed local output folder, copy a validated primary PLY and sidecars into the project, and write `metadata/geometry_bundle.json` without running a learned model.
-11. Artifact service labels reconstruction/export/debug/learned files.
-12. Export service creates user-facing files in `exports/`.
-13. Frontend displays artifacts through browser viewer states or download links.
+11. Learned runtime preflight/smoke can run a configured local adapter command with a bounded frame/keyframe budget and then import successful output through the same geometry bundle path.
+12. Artifact service labels reconstruction/export/debug/learned files.
+13. Export service creates user-facing files in `exports/`.
+14. Frontend displays artifacts through browser viewer states or download links.
 
 ## Error handling
 
@@ -186,6 +206,7 @@ Use environment variables and `.env.example` for:
 - Frontend backend URL.
 - Optional external tool paths.
 - Optional COLMAP executable path for point-cloud reconstruction.
+- Optional learned runtime command, args, Python diagnostics path, model root, checkpoint path, checkpoint SHA-256, cache dir, VRAM budget, and timeout.
 - Max upload size.
 - Frame extraction defaults.
 - ffmpeg timeout.

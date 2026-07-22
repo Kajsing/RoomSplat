@@ -15,5 +15,19 @@ export function formatGeometryCapabilities(metadata: Pick<GeometryBundleMetadata
 }
 
 export function isLearnedGeometryJob(jobType: JobType) {
-  return jobType === 'learned_geometry_preflight' || jobType === 'import_learned_geometry'
+  return (
+    jobType === 'learned_geometry_preflight' ||
+    jobType === 'import_learned_geometry' ||
+    jobType === 'learned_runtime_preflight' ||
+    jobType === 'learned_runtime_smoke'
+  )
+}
+
+export function formatLearnedRuntimeStatus(result: Record<string, unknown> | null | undefined) {
+  const status = typeof result?.status === 'string' ? result.status : 'pending'
+  const selected = Array.isArray(result?.selected_frame_indices) ? result.selected_frame_indices.length : undefined
+  const blockers = Array.isArray(result?.blockers) ? result.blockers.length : 0
+  const frameText = selected === undefined ? '' : `, ${selected.toLocaleString()} selected frames`
+  const blockerText = blockers > 0 ? `, ${blockers.toLocaleString()} blockers` : ''
+  return `${status}${frameText}${blockerText}`
 }
