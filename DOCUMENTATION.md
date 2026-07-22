@@ -4,7 +4,7 @@
 
 Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness implemented; learned geometry import/preflight v1 implemented.
 Current milestone: Real Splat Pipeline Exploration + First Local Splat Adapter v1 complete.
-Next planned milestone: choose between improving native browser splat rendering/training quality or adding an optional isolated learned-model runtime adapter after checkpoint/download safety rules are finalized.
+Next planned milestone: Milestone 11 - Local Learned Runtime Smoke Path. The next direction is to test an optional local learned-geometry runtime on the Windows/RTX 3080 Ti machine with strict GPU preflight, checkpoint safety, no automatic downloads, frame/keyframe limits, and import through the existing geometry bundle path. Tablet support is a stretch capture/viewer workflow, not a v1 on-device inference requirement.
 
 ## Latest completed milestone
 
@@ -46,6 +46,7 @@ npm --prefix frontend run build
 | 2026-04-30 | Browser + desktop debug viewer | Browser is user-facing; desktop viewer helps pipeline debugging. |
 | 2026-04-30 | `.ply` + `.glb` exports | Open formats useful for point clouds/splats and broader 3D tooling. |
 | 2026-07-22 | Learned geometry readiness before model integration | LingBot-Map is useful inspiration, but direct runtime adoption has checkpoint, download, CUDA, Windows, server-binding, and file-containment risks. |
+| 2026-07-22 | Local learned runtime is the next primary experiment | The project now has a viewer and geometry bundle/import boundary, and the target machine has an RTX 3080 Ti with 12 GB VRAM; the next useful step is a controlled local smoke path rather than more placeholder scaffolding. |
 
 ## Known issues
 
@@ -72,6 +73,8 @@ npm --prefix frontend run build
 - LingBot-Map-style learned geometry is not yet integrated. Treat it as inspiration for adapter/output contracts until RoomSplat has model checkpoint safety, dependency isolation, local-only controls, and geometry bundle validation.
 - `metadata/geometry_bundle.json` now defines the first RoomSplat-native learned geometry bundle contract, but no LingBot-Map/VGGT runtime or checkpoint loader is integrated.
 - Learned geometry import/preflight can normalize completed local output folders, but still does not run LingBot-Map/VGGT or load checkpoints.
+- A 12 GB GPU is plausible for a small learned-runtime smoke path, but checkpoint size on disk is not equal to VRAM use. Runtime planning must account for activations, frame count, image size, PyTorch/CUDA overhead, precision, and offload behavior.
+- Tablet capture/viewing is a good stretch direction because the Galaxy Tab S10 Ultra-class camera can provide useful source video, but on-device learned inference is out of scope until the local PC runtime is proven.
 
 ## Commands run
 
@@ -449,6 +452,24 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
   - Add an optional isolated learned runtime adapter only after checkpoint/checksum/allowlist and no-auto-download policy is designed.
   - Add direct readers/filters for depth, confidence, and pointmap sidecars in the browser viewer.
   - Add size/file-count limits for very large learned sidecar folders before using this with long videos.
+
+## Milestone 11 local learned runtime planning notes
+
+- Planned next goal: add a controlled local learned-runtime smoke path for Windows and the RTX 3080 Ti-class machine.
+- The runtime path should start with preflight, not blind execution:
+  - GPU/CUDA/PyTorch readiness.
+  - model/checkpoint path configuration.
+  - no automatic checkpoint download by default.
+  - checksum or allowlist metadata before loading large model files.
+  - VRAM/disk expectation notes for 12 GB GPU runs.
+  - frame/keyframe, resize, precision, and offload limits.
+- Successful output must flow through the existing learned geometry import path and produce `predicted_point_cloud_ply` plus `learned_geometry_bundle`.
+- Blocked output must produce actionable diagnostics such as `blocked_missing_dependencies`, `blocked_missing_checkpoint`, or `blocked_insufficient_vram`; it must not create fake geometry.
+- Viewer validation should focus on whether the predicted point cloud/bundle is recognizable and honestly labeled, while native Gaussian splat rendering compatibility remains a separate viewer milestone.
+- Tablet stretch goal:
+  - use tablet as high-quality capture device first,
+  - later polish tablet/browser viewer,
+  - postpone tablet on-device inference until local PC runtime, quantization, and mobile/WebGPU constraints are better understood.
 
 ## Milestone 9 learned geometry readiness notes
 

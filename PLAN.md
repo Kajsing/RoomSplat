@@ -266,13 +266,78 @@ Stop condition:
 
 Stop before adding a direct learned-model runtime, checkpoint loader, automatic model download, public server binding, or non-local dependency. Document the alternative and ask before changing direction.
 
+## Milestone 11 - Local Learned Runtime Smoke Path
+
+Goal: Turn the learned-geometry contract/import path into a controlled local Windows GPU smoke path for the RTX 3080 Ti-class machine, while preserving local-only behavior, generated-data safety, and explicit model/checkpoint control.
+
+Direction:
+
+- Treat LingBot-Map/VGGT-style feed-forward geometry as the next primary reconstruction path to test locally.
+- Keep Nerfstudio/Splatfacto as the existing real splat path, but do not block learned runtime work on native browser splat rendering compatibility.
+- Use the browser viewer plus geometry bundle contract as the validation surface for first recognizable local learned output.
+- Tablet support is a stretch capture/viewer workflow, not a v1 on-device inference requirement.
+
+Acceptance criteria:
+
+- Add a learned-runtime preflight that reports:
+  - GPU availability and device name.
+  - CUDA/PyTorch readiness when available.
+  - total/free VRAM where observable.
+  - configured checkpoint/model paths and missing dependency diagnostics.
+  - estimated runtime budget from max frames, image resize, precision, and optional CPU/offload settings.
+- Add explicit configuration for optional learned runtime dependencies:
+  - no automatic model or checkpoint download by default,
+  - user-supplied checkpoint paths only,
+  - checksum or allowlist metadata before loading large model files,
+  - generated outputs and caches kept under ignored local data/tool/cache folders,
+  - clear docs for disk/VRAM expectations on a 12 GB GPU.
+- Add an isolated adapter boundary for a local learned runtime invocation:
+  - consumes existing extracted frames,
+  - applies deterministic frame/keyframe selection,
+  - supports resize/max-frame/runtime params,
+  - writes a completed local learned-output folder or blocked diagnostics,
+  - imports successful output through the existing `import_learned_geometry` / geometry bundle path.
+- Add a first smoke command/job path that can run with a very small frame budget and either:
+  - produce a valid `predicted_point_cloud_ply` + `learned_geometry_bundle`, or
+  - fail as `blocked_missing_dependencies` / `blocked_missing_checkpoint` / `blocked_insufficient_vram` without fake artifacts.
+- Update the frontend job controls to expose the preflight/smoke path without encouraging public server exposure or accidental checkpoint download.
+- Viewer validation should prioritize:
+  - recognizable geometry if runtime succeeds,
+  - correct artifact labeling,
+  - camera/path/depth/confidence metadata inspection where available,
+  - no misleading promotion of predicted geometry as verified metric reconstruction.
+- Add focused tests for preflight parsing, checkpoint path containment, no-auto-download behavior, frame budget validation, blocked diagnostics, geometry bundle import handoff, and frontend helper/job type handling.
+- Update README, DOCUMENTATION.md, architecture notes, validation docs, security notes, and a `.logs/` entry with assumptions, known risks, and validation results.
+
+Validation:
+
+```bash
+python -m pytest backend/tests pipeline/tests
+node --experimental-strip-types --test frontend/tests/*.test.ts
+npm --prefix frontend run build
+git diff --check
+git status --short
+```
+
+Manual/browser validation when dependencies are present:
+
+```text
+create/import project -> extract frames -> run learned runtime preflight -> run small learned smoke job -> import bundle -> inspect predicted PLY/bundle in viewer
+```
+
+Stop condition:
+
+Stop before requiring cloud processing, a paid dependency, public server binding, committing checkpoints/generated outputs, or changing the local-only security model. If the selected learned runtime cannot run within a practical 12 GB VRAM budget after frame/resize/precision limits, document the failed preflight and recommend the smallest safe next experiment.
+
 ## Future milestones, not v1
 
 - Live stream/webcam ingestion.
 - Android companion app.
+- Tablet capture workflow and tablet/browser viewer polish.
+- Tablet on-device learned inference only after local PC runtime is proven and quantized/mobile runtime constraints are understood.
 - Kinect for Windows plugin.
 - Better measurement tools.
 - Dense mesh generation.
 - Better GLB conversion.
-- Experimental LingBot-Map/VGGT-style learned geometry adapter after Milestone 9 contracts and safety rules are in place.
+- Richer learned sidecar viewing: depth, confidence, mask, pointmap, and per-frame inspection.
 - Packaged Windows installer.
