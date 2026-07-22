@@ -9,6 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.models.schemas import ArtifactResponse, ArtifactType, ExportFormat, ExportResponse, ExportStatus
+from app.services.geometry_bundle import GEOMETRY_BUNDLE_RELATIVE_PATH, load_declared_geometry_primary_paths, load_geometry_artifact_types
 from app.services.project_store import ProjectStore, ProjectStoreError
 
 
@@ -28,6 +29,8 @@ class ArtifactService:
     def list_artifacts(self, project_id: str) -> list[ArtifactResponse]:
         project_dir = self._project_dir(project_id)
         artifacts: list[ArtifactResponse] = []
+        geometry_artifact_types = load_geometry_artifact_types(project_dir)
+        declared_geometry_primary_paths = load_declared_geometry_primary_paths(project_dir)
 
         for directory_name in ARTIFACT_DIRS:
             directory = (project_dir / directory_name).resolve()
@@ -36,11 +39,18 @@ class ArtifactService:
                 continue
             for path in sorted(directory.iterdir()):
                 if path.is_file() and path.suffix.lower() in ARTIFACT_EXTENSIONS and _is_inside_project(path, project_dir):
-                    artifacts.append(self._artifact_response(project_id, project_dir, path))
+                    relative_path = path.relative_to(project_dir)
+                    if relative_path in declared_geometry_primary_paths and relative_path not in geometry_artifact_types:
+                        continue
+                    artifacts.append(self._artifact_response(project_id, project_dir, path, geometry_artifact_types))
 
         debug_report = (project_dir / DEBUG_REPORT).resolve()
         if debug_report.is_file():
-            artifacts.append(self._artifact_response(project_id, project_dir, debug_report))
+            artifacts.append(self._artifact_response(project_id, project_dir, debug_report, geometry_artifact_types))
+
+        geometry_bundle = (project_dir / GEOMETRY_BUNDLE_RELATIVE_PATH).resolve()
+        if geometry_bundle.is_file() and GEOMETRY_BUNDLE_RELATIVE_PATH in geometry_artifact_types:
+            artifacts.append(self._artifact_response(project_id, project_dir, geometry_bundle, geometry_artifact_types))
 
         return sorted(artifacts, key=_artifact_sort_key)
 
@@ -55,9 +65,15 @@ class ArtifactService:
             raise ArtifactServiceError("Artifact was not found.")
         return path
 
-    def _artifact_response(self, project_id: str, project_dir: Path, path: Path) -> ArtifactResponse:
+    def _artifact_response(
+        self,
+        project_id: str,
+        project_dir: Path,
+        path: Path,
+        geometry_artifact_types: dict[Path, ArtifactType] | None = None,
+    ) -> ArtifactResponse:
         relative_path = path.relative_to(project_dir)
-        artifact_type = _artifact_type(relative_path)
+        artifact_type = _artifact_type(relative_path, geometry_artifact_types)
         artifact_id = _encode_artifact_id(relative_path)
         stat = path.stat()
         return ArtifactResponse(
@@ -66,7 +82,7 @@ class ArtifactService:
             name=path.name,
             relative_path=relative_path.as_posix(),
             artifact_type=artifact_type,
-            viewer_supported=artifact_type in {"debug_frame_cloud_ply", "point_cloud_ply", "splat_ply", "mesh_glb", "debug_report"},
+            viewer_supported=artifact_type in {"debug_frame_cloud_ply", "point_cloud_ply", "predicted_point_cloud_ply", "splat_ply", "mesh_glb", "debug_report"},
             size_bytes=stat.st_size,
             modified_at=datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
             download_url=f"/projects/{project_id}/artifacts/{artifact_id}/download",
@@ -94,7 +110,7 @@ class ExportService:
         project_dir = self.artifact_service._project_dir(project_id)
         source_path = self.artifact_service.resolve_artifact_path(project_id, source_artifact_id)
         source_relative_path = source_path.relative_to(project_dir)
-        source_type = _artifact_type(source_relative_path)
+        source_type = _artifact_type(source_relative_path, load_geometry_artifact_types(project_dir))
         export_id = uuid4().hex
         generated_at = datetime.now(UTC).isoformat()
 
@@ -246,9 +262,13 @@ class ExportService:
         metadata_path.write_text(json.dumps(response.model_dump(), indent=2) + "\n", encoding="utf-8")
 
 
-def _artifact_type(relative_path: Path) -> ArtifactType:
+def _artifact_type(relative_path: Path, geometry_artifact_types: dict[Path, ArtifactType] | None = None) -> ArtifactType:
+    if geometry_artifact_types and relative_path in geometry_artifact_types:
+        return geometry_artifact_types[relative_path]
     name = relative_path.name.lower()
     parent = relative_path.parent.as_posix().lower()
+    if relative_path == GEOMETRY_BUNDLE_RELATIVE_PATH:
+        return "learned_geometry_bundle"
     if relative_path == DEBUG_REPORT:
         return "debug_report"
     if name == "debug-frame-room.ply" or name.startswith("debug-frame-"):
@@ -269,8 +289,10 @@ def _description(artifact_type: ArtifactType, relative_path: Path | None = None)
     descriptions = {
         "debug_frame_cloud_ply": "Debug frame planes sampled from extracted frames and placed in 3D for viewer inspection. This is not a reconstruction.",
         "point_cloud_ply": "Conventional point-cloud PLY. This is not Gaussian splat data unless explicitly labeled as splat_ply.",
+        "predicted_point_cloud_ply": "Learned/predicted point-cloud PLY from a geometry bundle. This is not Gaussian splat data or a verified metric scan.",
         "splat_ply": "Gaussian splat PLY-like artifact. This is not a conventional point cloud.",
         "mesh_glb": "Portable GLB scene or mesh artifact. Browser rendering requires GLB viewer support.",
+        "learned_geometry_bundle": "Learned geometry bundle metadata. This describes predicted geometry outputs and dependency assumptions; it is not a 3D artifact.",
         "debug_report": "Reconstruction spike/debug report. This is not a reconstructed 3D artifact.",
         "unsupported": "Unsupported artifact type.",
     }
@@ -291,9 +313,11 @@ def _artifact_sort_key(artifact: ArtifactResponse) -> tuple[int, str]:
         return (10, artifact.relative_path)
     ranks = {
         "splat_ply": 20,
+        "predicted_point_cloud_ply": 25,
         "point_cloud_ply": 30,
         "mesh_glb": 40,
         "debug_frame_cloud_ply": 60,
+        "learned_geometry_bundle": 65,
         "debug_report": 70,
         "unsupported": 100,
     }
@@ -301,7 +325,7 @@ def _artifact_sort_key(artifact: ArtifactResponse) -> tuple[int, str]:
 
 
 def _format_for_artifact_type(artifact_type: ArtifactType) -> ExportFormat:
-    if artifact_type in {"debug_frame_cloud_ply", "point_cloud_ply", "splat_ply"}:
+    if artifact_type in {"debug_frame_cloud_ply", "point_cloud_ply", "predicted_point_cloud_ply", "splat_ply"}:
         return "ply"
     if artifact_type == "mesh_glb":
         return "glb"

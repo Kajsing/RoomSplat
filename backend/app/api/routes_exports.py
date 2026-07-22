@@ -5,6 +5,7 @@ from app.config import get_config
 from app.models.schemas import ArtifactListResponse, ExportCreateRequest, ExportListResponse, ExportResponse
 from app.services.debug_frame_cloud import DebugFrameCloudService
 from app.services.export_service import ArtifactService, ArtifactServiceError, ExportService
+from app.services.geometry_bundle import GeometryBundleError, GeometryBundleService
 from app.services.project_store import ProjectStore
 from app.services.reconstruction_jobs import ReconstructionService
 
@@ -26,6 +27,10 @@ def get_debug_frame_cloud_service() -> DebugFrameCloudService:
 def get_reconstruction_service() -> ReconstructionService:
     config = get_config()
     return ReconstructionService(ProjectStore(config.data_dir), colmap_path=config.colmap_path)
+
+
+def get_geometry_bundle_service() -> GeometryBundleService:
+    return GeometryBundleService(ProjectStore(get_config().data_dir))
 
 
 @router.get("/projects/{project_id}/artifacts", response_model=ArtifactListResponse)
@@ -59,6 +64,15 @@ def get_reconstruction_metadata(project_id: str) -> dict:
         return get_reconstruction_service().read_metadata(project_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/projects/{project_id}/geometry-bundle")
+def get_geometry_bundle_metadata(project_id: str) -> dict:
+    try:
+        return get_geometry_bundle_service().read_metadata(project_id)
+    except GeometryBundleError as exc:
+        status_code = 404 if "No learned geometry bundle metadata" in str(exc) else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 @router.post("/projects/{project_id}/exports", response_model=ExportResponse, status_code=201)

@@ -426,13 +426,20 @@ async function loadArtifact(artifact: Artifact, sourceUrl: string, pointSize: nu
       }
     }
   }
-  if (artifact.artifact_type === 'debug_frame_cloud_ply' || artifact.artifact_type === 'point_cloud_ply') {
+  if (artifact.artifact_type === 'debug_frame_cloud_ply' || artifact.artifact_type === 'point_cloud_ply' || artifact.artifact_type === 'predicted_point_cloud_ply') {
     const result = await loadPlyPoints(sourceUrl, pointSize, colorMode)
     if (artifact.artifact_type === 'debug_frame_cloud_ply') {
       return {
         ...result,
         status: 'Debug frame planes loaded for viewer inspection.',
         warning: 'Debug frame planes are sampled from extracted frames and are not reconstruction.',
+      }
+    }
+    if (artifact.artifact_type === 'predicted_point_cloud_ply') {
+      return {
+        ...result,
+        status: `Predicted point-cloud geometry loaded with ${result.stats.pointCount?.toLocaleString() ?? 'unknown'} points.`,
+        warning: 'This is learned/predicted geometry from a geometry bundle, not Gaussian splat data or a verified metric scan.',
       }
     }
     return result
@@ -828,7 +835,7 @@ function getCameraPath(metadata: ReconstructionMetadata | null) {
 }
 
 function isPointLayerArtifact(type: Artifact['artifact_type']) {
-  return type === 'debug_frame_cloud_ply' || type === 'point_cloud_ply' || type === 'splat_ply'
+  return type === 'debug_frame_cloud_ply' || type === 'point_cloud_ply' || type === 'predicted_point_cloud_ply' || type === 'splat_ply'
 }
 
 function clearArtifactRoot(root: THREE.Group) {

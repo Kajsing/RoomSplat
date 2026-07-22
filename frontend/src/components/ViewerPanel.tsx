@@ -254,7 +254,9 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
                     Download
                   </a>
                   <div style={exportControlsStyle}>
-                    {selectedArtifact.artifact_type === 'point_cloud_ply' || selectedArtifact.artifact_type === 'splat_ply' ? (
+                    {selectedArtifact.artifact_type === 'point_cloud_ply' ||
+                    selectedArtifact.artifact_type === 'predicted_point_cloud_ply' ||
+                    selectedArtifact.artifact_type === 'splat_ply' ? (
                       <button disabled={isExporting} onClick={() => handleExport('ply')} style={secondaryButtonStyle} type="button">
                         Export PLY
                       </button>

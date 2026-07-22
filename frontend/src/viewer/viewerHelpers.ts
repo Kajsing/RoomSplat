@@ -4,8 +4,10 @@ export function formatViewerArtifactType(type: ArtifactType) {
   const labels = {
     debug_frame_cloud_ply: 'Debug frame planes',
     point_cloud_ply: 'Point cloud PLY',
+    predicted_point_cloud_ply: 'Predicted point cloud PLY',
     splat_ply: 'Splat PLY',
     mesh_glb: 'GLB scene',
+    learned_geometry_bundle: 'Geometry bundle',
     debug_report: 'Debug report',
     unsupported: 'Unsupported',
   }
@@ -13,7 +15,13 @@ export function formatViewerArtifactType(type: ArtifactType) {
 }
 
 export function isThreeViewerArtifact(type: ArtifactType) {
-  return type === 'debug_frame_cloud_ply' || type === 'point_cloud_ply' || type === 'splat_ply' || type === 'mesh_glb'
+  return (
+    type === 'debug_frame_cloud_ply' ||
+    type === 'point_cloud_ply' ||
+    type === 'predicted_point_cloud_ply' ||
+    type === 'splat_ply' ||
+    type === 'mesh_glb'
+  )
 }
 
 export function formatBytes(sizeBytes: number) {
@@ -34,9 +42,11 @@ export function artifactPriority(artifact: Pick<Artifact, 'artifact_type' | 'rel
   if (artifact.relative_path === 'reconstruction/sparse-point-cloud.ply') return 10
   const ranks: Record<ArtifactType, number> = {
     splat_ply: 20,
+    predicted_point_cloud_ply: 25,
     point_cloud_ply: 30,
     mesh_glb: 40,
     debug_frame_cloud_ply: 60,
+    learned_geometry_bundle: 65,
     debug_report: 70,
     unsupported: 100,
   }

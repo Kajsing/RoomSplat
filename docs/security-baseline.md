@@ -61,6 +61,18 @@ Fix:
 - `backend/app/services/debug_frame_cloud.py` limits Frame Room Cloud debug output to 50,000 points and writes metadata with `mode: debug` and `not_reconstruction: true`.
 - Frame extraction jobs no longer need the frontend to echo an absolute `source_video` path back to the backend.
 
+### Hardened: learned geometry bundle boundary
+
+Milestone 9 readiness adds a metadata-only boundary for future LingBot-Map/VGGT-style adapters without adding a learned-model runtime dependency.
+
+Controls:
+
+- `metadata/geometry_bundle.json` is validated before it is returned by `GET /projects/{project_id}/geometry-bundle`.
+- Declared source frames, primary artifacts, and required sidecars must resolve inside the project folder.
+- Incomplete or invalid bundles are rejected and do not promote their declared primary PLY files into `predicted_point_cloud_ply` artifacts.
+- Learned/predicted PLY outputs are labeled `predicted_point_cloud_ply`, distinct from COLMAP `point_cloud_ply` and Gaussian `splat_ply`.
+- No automatic model/download/checkpoint behavior was added.
+
 ## Reviewed controls
 
 - Project IDs are restricted to 32 lowercase hex characters before folder resolution.
@@ -70,6 +82,7 @@ Fix:
 - ffmpeg is invoked with an argument list, not through a shell string.
 - Artifact IDs decode to relative paths only; absolute and parent paths are rejected.
 - Artifact listing and downloads only expose files that resolve inside the project folder.
+- Learned geometry bundle paths are rejected if absolute, parent-relative, escaped through symlinks, missing when required, or inconsistent with declared artifact extensions.
 - Export creation writes only under `exports/` and records `real` versus `placeholder` status.
 - Placeholder exports are explicit debug/workflow artifacts and are not labeled as real reconstruction.
 - Frame Room Cloud outputs are explicit debug viewer artifacts and are not labeled as real reconstruction.
@@ -82,6 +95,7 @@ Fix:
 - Large or malformed media can still consume CPU/disk during parsing or ffmpeg extraction within the configured upload and timeout limits.
 - API responses currently include local filesystem paths for operator transparency; this is acceptable for local-only v1 but should be revisited before LAN or shared use.
 - Future real reconstruction adapters must preserve the same containment checks and avoid shell invocation.
+- Future learned adapters must not use untrusted pickle checkpoints, automatic downloads, arbitrary output paths, or `0.0.0.0` viewer binding without a new security review.
 - Real GLB conversion remains future work even though the browser can now render GLB scene artifacts when they exist.
 - The current security baseline is focused and artifact-backed, not a complete production penetration test.
 

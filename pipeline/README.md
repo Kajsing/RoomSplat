@@ -53,6 +53,18 @@ The script:
 
 Adapters expose dependency checks, readiness status, expected artifact contracts, and next setup steps.
 
+Learned/feed-forward geometry adapters must use the shared geometry bundle contract from
+`pipeline.adapters.base`:
+
+- call `learned_geometry_expected_outputs()` when declaring the expected manifest and primary PLY;
+- validate the declaration with `validate_geometry_expected_outputs()` in adapter tests;
+- write the manifest to `metadata/geometry_bundle.json`;
+- label the manifest as `learned_geometry_bundle`;
+- label the primary predicted PLY as `predicted_point_cloud_ply`, not `point_cloud_ply` or `splat_ply`.
+
+This contract is only a local artifact boundary. It does not add a learned-model runtime,
+checkpoint loader, automatic download, or LingBot-Map dependency.
+
 Current adapters:
 
 - `colmap`: camera poses and sparse conventional point cloud.
@@ -103,6 +115,8 @@ Output labels must stay explicit:
 - `camera_poses`: camera intrinsics/extrinsics.
 - `point_cloud_ply`: conventional point cloud, not splats.
 - `splat_ply`: Gaussian splat data.
+- `predicted_point_cloud_ply`: learned/predicted point cloud declared by a valid geometry bundle.
+- `learned_geometry_bundle`: validated `metadata/geometry_bundle.json` metadata, not a 3D renderable artifact.
 
 Primary references:
 

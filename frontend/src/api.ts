@@ -61,7 +61,15 @@ export type Job = {
   log_path: string
 }
 
-export type ArtifactType = 'debug_frame_cloud_ply' | 'point_cloud_ply' | 'splat_ply' | 'mesh_glb' | 'debug_report' | 'unsupported'
+export type ArtifactType =
+  | 'debug_frame_cloud_ply'
+  | 'point_cloud_ply'
+  | 'predicted_point_cloud_ply'
+  | 'splat_ply'
+  | 'mesh_glb'
+  | 'learned_geometry_bundle'
+  | 'debug_report'
+  | 'unsupported'
 
 export type Artifact = {
   id: string
@@ -214,6 +222,81 @@ export type SplatReconstructionMetadata = {
   warning?: string | null
 }
 
+export type GeometryBundleVector3 = {
+  x: number
+  y: number
+  z: number
+}
+
+export type GeometryBundleMetadata = {
+  project_id: string
+  schema_version: 'roomsplat.geometry_bundle.v1'
+  artifact_type: 'learned_geometry_bundle'
+  mode: 'learned_geometry'
+  source_adapter: string
+  adapter_family: 'learned' | 'feed_forward' | 'external' | 'unknown'
+  status: 'complete' | 'incomplete' | 'blocked_missing_dependencies' | 'failed'
+  complete: boolean
+  is_reconstruction: boolean
+  not_reconstruction: boolean
+  frame_count: number
+  frame_index_map: Array<{
+    bundle_frame_index: number
+    source_frame_index: number
+    source_frame: string
+  }>
+  cameras: Array<{
+    frame_index: number
+    position: GeometryBundleVector3
+    qvec?: [number, number, number, number] | null
+    transform?: number[][] | null
+  }>
+  intrinsics: Array<{
+    frame_index: number
+    width: number
+    height: number
+    fx: number
+    fy: number
+    cx: number
+    cy: number
+  }>
+  trajectory: Array<{
+    frame_index: number
+    position: GeometryBundleVector3
+  }>
+  capabilities: {
+    depth: boolean
+    confidence: boolean
+    mask: boolean
+    pointmap: boolean
+  }
+  primary_artifacts: Array<{
+    relative_path: string
+    artifact_type: 'predicted_point_cloud_ply' | 'mesh_glb' | 'unsupported'
+    role: string
+    description: string
+  }>
+  sidecars: Array<{
+    relative_path: string
+    sidecar_type: 'depth' | 'confidence' | 'mask' | 'camera_poses' | 'intrinsics' | 'trajectory' | 'sampling' | 'metadata' | 'other'
+    required: boolean
+    description: string
+  }>
+  quality: {
+    status: 'unknown' | 'debug' | 'inspectable' | 'needs_review' | 'failed'
+    notes: string
+  }
+  warnings: string[]
+  generated_data_rules: {
+    local_only: boolean
+    no_auto_downloads: boolean
+    contained_under_project: boolean
+    ignored_by_git: boolean
+    notes: string
+  }
+  generated_at?: string | null
+}
+
 export type ExportFormat = 'ply' | 'glb'
 export type ExportStatus = 'real' | 'placeholder'
 
@@ -331,6 +414,10 @@ export async function getReconstructionMetadata(projectId: string, baseUrl = DEF
 
 export async function getSplatReconstructionMetadata(projectId: string, baseUrl = DEFAULT_BASE_URL) {
   return requestJson<SplatReconstructionMetadata>(`${baseUrl}/projects/${projectId}/splat-reconstruction`)
+}
+
+export async function getGeometryBundleMetadata(projectId: string, baseUrl = DEFAULT_BASE_URL) {
+  return requestJson<GeometryBundleMetadata>(`${baseUrl}/projects/${projectId}/geometry-bundle`)
 }
 
 export async function createExport(

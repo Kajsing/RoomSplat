@@ -55,7 +55,16 @@ class FrameExtractionResponse(BaseModel):
 
 JobType = Literal["frame_extraction", "reconstruction_spike", "debug_frame_cloud", "reconstruct_point_cloud", "reconstruct_splat"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
-ArtifactType = Literal["debug_frame_cloud_ply", "point_cloud_ply", "splat_ply", "mesh_glb", "debug_report", "unsupported"]
+ArtifactType = Literal[
+    "debug_frame_cloud_ply",
+    "point_cloud_ply",
+    "predicted_point_cloud_ply",
+    "splat_ply",
+    "mesh_glb",
+    "learned_geometry_bundle",
+    "debug_report",
+    "unsupported",
+]
 ExportFormat = Literal["ply", "glb"]
 ExportStatus = Literal["real", "placeholder"]
 

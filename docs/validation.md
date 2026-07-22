@@ -34,8 +34,10 @@ node --experimental-strip-types --test frontend/tests/*.test.ts
 15. Create exports through `POST /projects/{project_id}/exports`.
 16. Verify `metadata/exports/<export-id>.json` records source artifact, format, generated time, artifact label, and `real`/`placeholder` status.
 17. Download the exported file through the artifact download URL.
-18. Confirm the backend is bound to `127.0.0.1` for local v1 use.
-19. Confirm generated data remains ignored by Git.
+18. If learned geometry metadata exists, verify `GET /projects/{project_id}/geometry-bundle` validates `metadata/geometry_bundle.json` and that declared primary PLYs are labeled `predicted_point_cloud_ply`.
+19. Confirm incomplete or escaped learned geometry bundles are rejected and do not promote their primary artifacts.
+20. Confirm the backend is bound to `127.0.0.1` for local v1 use.
+21. Confirm generated data remains ignored by Git.
 
 ## Validation principle
 
@@ -61,6 +63,26 @@ Manual/browser checks:
 - Confirm the Three.js canvas is nonblank, fit/reset/orbit/zoom/point-size/color controls work, and artifact switching keeps debug and real outputs distinct.
 
 Security baseline checks should cover path containment for project IDs, uploads, frame extraction sources, job paths, artifact IDs, artifact listing/downloads, and export outputs.
+
+## Learned Geometry Adapter Readiness
+
+Focused validation for the Milestone 9 geometry bundle contract:
+
+```bash
+python -m pytest backend/tests/test_geometry_bundle.py backend/tests/test_artifacts.py backend/tests/test_exports.py
+node --experimental-strip-types --test frontend/tests/*.test.ts
+npm --prefix frontend run build
+```
+
+Manual/API checks:
+
+- Write a complete `metadata/geometry_bundle.json` with `schema_version: roomsplat.geometry_bundle.v1`, source frame mapping, cameras, intrinsics, trajectory, primary artifact declarations, required sidecars, warnings, quality notes, and generated-data rules.
+- Confirm `GET /projects/{project_id}/geometry-bundle` returns the validated bundle.
+- Confirm `GET /projects/{project_id}/artifacts` labels bundle-declared PLY output as `predicted_point_cloud_ply`.
+- Confirm `metadata/geometry_bundle.json` appears as `learned_geometry_bundle` and is not marked viewer-supported.
+- Confirm incomplete bundles, escaped sidecars, missing primary artifacts, and mismatched primary artifact extensions fail validation.
+- Confirm invalid bundle primary PLYs do not fall back to generic `point_cloud_ply` labeling.
+- Confirm no learned-model runtime, automatic checkpoint download, or external server binding is required by this readiness slice.
 
 ## Reconstruction Quality + Camera Path v1
 

@@ -70,6 +70,7 @@ npm --prefix frontend run build
 - SuperSplat compressed PLY samples use packed chunk/sh fields and no ordinary vertex `x/y/z` positions, so they need explicit compressed splat support; current point-cloud fallback cannot display them.
 - Imported PLY/GLB/splat artifacts may use different up axes or appear upside down; the Three.js viewer now has source/flip/axis-conversion orientation presets for inspection.
 - LingBot-Map-style learned geometry is not yet integrated. Treat it as inspiration for adapter/output contracts until RoomSplat has model checkpoint safety, dependency isolation, local-only controls, and geometry bundle validation.
+- `metadata/geometry_bundle.json` now defines the first RoomSplat-native learned geometry bundle contract, but no LingBot-Map/VGGT runtime or checkpoint loader is integrated.
 
 ## Commands run
 
@@ -406,6 +407,25 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
 - Manual screenshot: ignored `data/manual-verification/recognizable-splat-chair-masked-1000-gaussian-fallback-large-view.png`.
 - Pixel check for the masked-chair screenshot: 598x830, 31,085 unique colors, 53,132 non-background pixels, 5,690 orange pixels, orange bbox 230x212 px.
 - Current assessment: this satisfies the first recognizable RoomSplat splat goal as a recognizable orange bowl-chair object from a real local Nerfstudio/Splatfacto reconstruction, with the limitation that browser native splat rendering still falls back.
+
+## Milestone 9 learned geometry readiness notes
+
+- Added `metadata/geometry_bundle.json` as the first RoomSplat-native learned geometry bundle contract.
+- Added backend Pydantic validation for schema version, source adapter, frame mapping, cameras, intrinsics, trajectory, depth/confidence/mask/pointmap capabilities, primary artifacts, sidecars, quality notes, warnings, generated-data rules, completion status, and path containment.
+- Added a pipeline-side learned geometry adapter contract helper so future learned adapters declare the same `metadata/geometry_bundle.json` and `predicted_point_cloud_ply` boundary before any runtime integration.
+- Added `GET /projects/{project_id}/geometry-bundle`.
+- Added artifact labels:
+  - `predicted_point_cloud_ply` for bundle-declared learned/predicted PLY outputs.
+  - `learned_geometry_bundle` for validated bundle metadata.
+- Invalid or incomplete geometry bundles are not listed and do not promote their declared PLY outputs; this prevents learned/predicted outputs from silently falling back to generic `point_cloud_ply`.
+- Learned geometry bundles must report `is_reconstruction: false` and `not_reconstruction: true` until a future adapter explicitly promotes or converts them into verified reconstruction artifacts.
+- Frontend API/types and viewer helpers now understand predicted point-cloud PLY and learned geometry bundle metadata.
+- Three.js viewer can load `predicted_point_cloud_ply` through the point-cloud path with an explicit learned/predicted geometry warning.
+- No LingBot-Map, VGGT, checkpoint loader, automatic download, or learned-model runtime dependency was added.
+- Remaining future work:
+  - Add an actual optional learned adapter after checkpoint safety and isolated runtime rules are finalized.
+  - Add richer viewer controls for confidence filtering, current/all-frame mode, frame selection, clickable learned cameras/frustums, and camera downsampling.
+  - Add depth/confidence sidecar readers only after storage size limits and UI behavior are designed.
 
 ## Milestone 8 notes
 

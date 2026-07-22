@@ -7,16 +7,20 @@ import { artifactPriority, formatBytes, formatViewerArtifactType, isThreeViewerA
 test('formats viewer artifact labels', () => {
   assert.equal(formatViewerArtifactType('debug_frame_cloud_ply'), 'Debug frame planes')
   assert.equal(formatViewerArtifactType('point_cloud_ply'), 'Point cloud PLY')
+  assert.equal(formatViewerArtifactType('predicted_point_cloud_ply'), 'Predicted point cloud PLY')
   assert.equal(formatViewerArtifactType('splat_ply'), 'Splat PLY')
   assert.equal(formatViewerArtifactType('mesh_glb'), 'GLB scene')
+  assert.equal(formatViewerArtifactType('learned_geometry_bundle'), 'Geometry bundle')
   assert.equal(formatViewerArtifactType('debug_report'), 'Debug report')
 })
 
 test('identifies Three.js viewer artifact modes', () => {
   assert.equal(isThreeViewerArtifact('debug_frame_cloud_ply'), true)
   assert.equal(isThreeViewerArtifact('point_cloud_ply'), true)
+  assert.equal(isThreeViewerArtifact('predicted_point_cloud_ply'), true)
   assert.equal(isThreeViewerArtifact('splat_ply'), true)
   assert.equal(isThreeViewerArtifact('mesh_glb'), true)
+  assert.equal(isThreeViewerArtifact('learned_geometry_bundle'), false)
   assert.equal(isThreeViewerArtifact('debug_report'), false)
   assert.equal(isThreeViewerArtifact('unsupported'), false)
 })
@@ -31,7 +35,9 @@ test('sorts real artifacts before debug and placeholder artifacts', () => {
   const artifacts = [
     fakeArtifact('exports/placeholder-reconstruction-spike-1234.ply', 'point_cloud_ply'),
     fakeArtifact('metadata/reconstruction_spike.json', 'debug_report'),
+    fakeArtifact('metadata/geometry_bundle.json', 'learned_geometry_bundle'),
     fakeArtifact('reconstruction/debug-frame-room.ply', 'debug_frame_cloud_ply'),
+    fakeArtifact('reconstruction/learned-point-cloud.ply', 'predicted_point_cloud_ply'),
     fakeArtifact('reconstruction/splat.ply', 'splat_ply'),
     fakeArtifact('reconstruction/sparse-point-cloud.ply', 'point_cloud_ply'),
   ]
@@ -41,7 +47,9 @@ test('sorts real artifacts before debug and placeholder artifacts', () => {
     [
       'reconstruction/splat.ply',
       'reconstruction/sparse-point-cloud.ply',
+      'reconstruction/learned-point-cloud.ply',
       'reconstruction/debug-frame-room.ply',
+      'metadata/geometry_bundle.json',
       'metadata/reconstruction_spike.json',
       'exports/placeholder-reconstruction-spike-1234.ply',
     ],
