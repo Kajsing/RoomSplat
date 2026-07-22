@@ -109,6 +109,8 @@ Current viewer behavior:
 - `splat_ply`: attempts GaussianSplats3D rendering first; if the loader rejects the file, falls back to point-cloud preview with an explicit message.
 - `mesh_glb`: Three.js GLB scene loading through `GLTFLoader`.
 - `debug_report`: JSON/debug text, not a 3D artifact.
+- `predicted_point_cloud_ply`: learned/predicted point cloud declared by a valid geometry bundle; rendered through the point-cloud viewer with an explicit warning.
+- `learned_geometry_bundle`: JSON metadata inspection for learned/predicted geometry; not a renderable 3D artifact.
 
 The first splat-first viewer test artifact was Frame Room Cloud, now labeled in the UI as debug frame planes: a deterministic ASCII PLY with XYZ + RGB points, capped at 50,000 points, arranged as vertical frame planes along a shallow arc. It accepts `max_points`, `frame_step`, `arc_degrees`, and `plane_width` job params. It exists to test viewer UX and spatial orientation and must not be mistaken for real reconstruction.
 
@@ -161,9 +163,10 @@ Current export behavior:
 7. Reconstruction-spike job consumes frames and writes dependency/output-contract guidance.
 8. Real sparse point-cloud reconstruction consumes frames through local COLMAP and writes `reconstruction/sparse-point-cloud.ply` plus `metadata/reconstruction.json`, including parsed `cameras.txt`, `images.txt`, and `points3D.txt` summary data.
 9. Splat reconstruction consumes frames through the Nerfstudio adapter, writes readiness/result metadata, and produces `reconstruction/splat.ply` when dependencies are installed.
-10. Artifact service labels reconstruction/export/debug files.
-11. Export service creates user-facing files in `exports/`.
-12. Frontend displays artifacts through browser viewer states or download links.
+10. Learned geometry preflight/import can inspect a completed local output folder, copy a validated primary PLY and sidecars into the project, and write `metadata/geometry_bundle.json` without running a learned model.
+11. Artifact service labels reconstruction/export/debug/learned files.
+12. Export service creates user-facing files in `exports/`.
+13. Frontend displays artifacts through browser viewer states or download links.
 
 ## Error handling
 

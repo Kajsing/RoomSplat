@@ -2,9 +2,9 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness added to the plan.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness implemented; learned geometry import/preflight v1 implemented.
 Current milestone: Real Splat Pipeline Exploration + First Local Splat Adapter v1 complete.
-Next planned milestone: choose between improving native browser splat rendering/training quality or implementing Milestone 9, Learned Geometry Adapter Readiness, before attempting any direct LingBot-Map-style model integration.
+Next planned milestone: choose between improving native browser splat rendering/training quality or adding an optional isolated learned-model runtime adapter after checkpoint/download safety rules are finalized.
 
 ## Latest completed milestone
 
@@ -71,6 +71,7 @@ npm --prefix frontend run build
 - Imported PLY/GLB/splat artifacts may use different up axes or appear upside down; the Three.js viewer now has source/flip/axis-conversion orientation presets for inspection.
 - LingBot-Map-style learned geometry is not yet integrated. Treat it as inspiration for adapter/output contracts until RoomSplat has model checkpoint safety, dependency isolation, local-only controls, and geometry bundle validation.
 - `metadata/geometry_bundle.json` now defines the first RoomSplat-native learned geometry bundle contract, but no LingBot-Map/VGGT runtime or checkpoint loader is integrated.
+- Learned geometry import/preflight can normalize completed local output folders, but still does not run LingBot-Map/VGGT or load checkpoints.
 
 ## Commands run
 
@@ -407,6 +408,47 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
 - Manual screenshot: ignored `data/manual-verification/recognizable-splat-chair-masked-1000-gaussian-fallback-large-view.png`.
 - Pixel check for the masked-chair screenshot: 598x830, 31,085 unique colors, 53,132 non-background pixels, 5,690 orange pixels, orange bbox 230x212 px.
 - Current assessment: this satisfies the first recognizable RoomSplat splat goal as a recognizable orange bowl-chair object from a real local Nerfstudio/Splatfacto reconstruction, with the limitation that browser native splat rendering still falls back.
+
+## Milestone 10 learned geometry import/preflight notes
+
+- Inspected local reference copy `C:\project\lingbot-map` for practical output-shape inspiration.
+- Useful LingBot/BSS-inspired shape:
+  - `.complete.json` with `metadata.frame_keys`, `metadata.global_keys`, and optional `metadata.frame_index_map`.
+  - Global `points.ply`.
+  - `traj.txt` camera-to-world rows.
+  - `intrinsics.txt` rows with `fx`, `fy`, `cx`, `cy`, `width`, `height`.
+  - `sampling.json`.
+  - Per-frame `depth/`, `confidence/`, `mask/`, and `points/` sidecar folders.
+- Added `pipeline/adapters/learned_geometry_import.py` with source-folder inspection, expected sidecars, and import assessment helpers.
+- Added backend `LearnedGeometryImportService`.
+- Added job types:
+  - `learned_geometry_preflight`
+  - `import_learned_geometry`
+- `learned_geometry_preflight` validates extracted project frames, source completion metadata, primary PLY, source-contained sidecars, frame mapping, and output contract without copying files.
+- `import_learned_geometry` copies the primary PLY to `reconstruction/learned-point-cloud.ply`, copies known sidecars under `metadata/learned/<adapter-slug>/`, writes `metadata/geometry_bundle.json`, and then validates the completed bundle.
+- Imported primary PLYs are labeled `predicted_point_cloud_ply` only after the geometry bundle validates.
+- Imported learned geometry remains `is_reconstruction: false` and `not_reconstruction: true`.
+- Frontend Jobs panel now supports learned geometry source folder, adapter label, primary PLY, preflight, and import.
+- Frontend Viewer panel displays `learned_geometry_bundle` as metadata/JSON inspection while `predicted_point_cloud_ply` continues to use the Three.js point viewer warning path.
+- Added focused tests:
+  - backend learned geometry preflight/import success;
+  - missing extracted frames;
+  - missing primary PLY;
+  - escaped source-relative primary path;
+  - missing declared sidecar folder;
+  - out-of-range frame map;
+  - pipeline source inspection and sidecar expectation helpers;
+  - frontend bundle summary/job type helpers.
+- Validation:
+  - `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 108 tests.
+  - Bundled Node frontend helper tests - passed, 12 tests.
+  - Bundled Node Vite build from `frontend/` - passed with the existing large chunk warning.
+  - `git diff --check` - passed with line-ending warnings only.
+- No LingBot-Map runtime, VGGT runtime, checkpoint loader, automatic model download, cloud dependency, or required learned runtime was added.
+- Remaining future work:
+  - Add an optional isolated learned runtime adapter only after checkpoint/checksum/allowlist and no-auto-download policy is designed.
+  - Add direct readers/filters for depth, confidence, and pointmap sidecars in the browser viewer.
+  - Add size/file-count limits for very large learned sidecar folders before using this with long videos.
 
 ## Milestone 9 learned geometry readiness notes
 

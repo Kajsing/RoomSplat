@@ -68,7 +68,7 @@ class GeometryBundlePrimaryArtifact(BaseModel):
 
 class GeometryBundleSidecar(BaseModel):
     relative_path: str
-    sidecar_type: Literal["depth", "confidence", "mask", "camera_poses", "intrinsics", "trajectory", "sampling", "metadata", "other"]
+    sidecar_type: Literal["depth", "confidence", "mask", "pointmap", "camera_poses", "intrinsics", "trajectory", "sampling", "metadata", "other"]
     required: bool = True
     description: str
 

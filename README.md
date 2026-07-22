@@ -13,6 +13,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Video upload into project `input/` folders.
 - Deterministic frame extraction into project `frames/` folders.
 - Local background jobs for frame extraction, reconstruction-spike orchestration, debug frame planes, real sparse point-cloud reconstruction, and Nerfstudio-backed splat reconstruction readiness/training/export.
+- Local learned-geometry preflight/import jobs for completed output folders with `.complete.json`, `points.ply`, trajectory/intrinsics files, and optional depth/confidence/mask/pointmap sidecars.
 - Artifact discovery/download APIs with explicit labels for debug frame clouds, point clouds, real splats, GLB, and debug reports.
 - Browser Three.js viewer with orbit/inspect controls, large-view mode, camera presets, orientation presets, stats, screenshot capture, frame markers for debug frame clouds, camera/path overlays for COLMAP point clouds, point cloud PLY, real `splat_ply` fallback viewing, and GLB scenes.
 - Export APIs and UI controls for `.ply` / `.glb` outputs, including explicit placeholder labels for debug exports.
@@ -31,6 +32,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - No native Android app.
 - No cloud processing or user accounts.
 - No construction-grade measurement guarantees.
+- No built-in LingBot-Map/VGGT runtime, checkpoint loader, or automatic model download. Learned geometry import only normalizes files that already exist on local disk.
 
 ## Windows prerequisites
 
@@ -99,14 +101,17 @@ Open the Vite URL shown in the terminal, usually `http://127.0.0.1:5173`.
 5. Run point cloud reconstruction to create a real COLMAP sparse point cloud at `reconstruction/sparse-point-cloud.ply`. Choose quick/balanced/detail presets as guidance for the extraction density you want to compare.
 6. Run splat reconstruction to attempt Nerfstudio/Splatfacto. If dependencies are missing, inspect the generated readiness diagnosis; if dependencies are ready, the job writes `reconstruction/splat.ply`.
 7. Run the reconstruction spike if you want the older multi-adapter dependency report.
-8. Inspect listed artifacts/debug reports in the browser viewer.
-9. Export `.ply` or `.glb` artifacts when available.
+8. If you have a completed local learned-geometry output folder, run learned geometry preflight, then import it. The expected LingBot/BSS-inspired shape is `.complete.json`, a primary `points.ply`, optional `traj.txt`, `intrinsics.txt`, `sampling.json`, and optional `depth/`, `confidence/`, `mask/`, or `points/` sidecar folders.
+9. Inspect listed artifacts/debug reports in the browser viewer.
+10. Export `.ply` or `.glb` artifacts when available.
 
 Placeholder exports are allowed only for workflow/debug testing and are labeled as placeholders.
 Debug frame plane artifacts are also debug-only and must not be described as reconstruction output.
 
 If COLMAP is not installed, the point-cloud reconstruction job fails with setup guidance instead of writing fake output.
 If Nerfstudio is not installed, the splat reconstruction job succeeds as a readiness check, writes `metadata/splat_reconstruction.json`, and does not write `reconstruction/splat.ply`. If Nerfstudio is installed but training/export fails, the same metadata file records the failed command output and still avoids fake splat output.
+
+Learned geometry import does not run a model. It copies a validated local output folder into the selected project, writes `metadata/geometry_bundle.json`, copies the primary PLY to `reconstruction/learned-point-cloud.ply`, and labels it `predicted_point_cloud_ply`. The bundle remains `is_reconstruction: false` and `not_reconstruction: true` until a future adapter explicitly promotes or converts it into a verified reconstruction artifact.
 
 ## Nerfstudio setup target
 
@@ -151,6 +156,8 @@ Generated videos, frames, reconstruction outputs, splats, checkpoints, and expor
 - Prefer bright, even lighting and overlapping camera paths.
 - Avoid fast pans, reflective surfaces, transparent objects, and textureless walls while testing.
 - `point_cloud_ply` is a conventional point cloud.
+- `predicted_point_cloud_ply` is learned/predicted geometry imported through a validated geometry bundle; it is not a Gaussian splat, a COLMAP point cloud, or a verified metric scan.
+- `learned_geometry_bundle` is metadata for predicted geometry and sidecars; it is inspectable as JSON and is not itself renderable 3D.
 - `debug_frame_cloud_ply` is a deterministic viewer/debug point cloud sampled from flat extracted frames and placed in 3D; it is not a reconstruction.
 - `reconstruction/sparse-point-cloud.ply` is a real COLMAP sparse `point_cloud_ply` artifact when point-cloud reconstruction succeeds.
 - `splat_ply` is Gaussian splat data stored in a PLY-like format, not a conventional point cloud.

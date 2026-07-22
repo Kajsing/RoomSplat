@@ -13,6 +13,15 @@ from pipeline.adapters.base import (
 )
 from pipeline.adapters.colmap_adapter import ColmapPoseAdapter
 from pipeline.adapters.gsplat_adapter import GsplatResearchAdapter
+from pipeline.adapters.learned_geometry_import import (
+    LearnedGeometryImportError,
+    LearnedGeometrySidecarCandidate,
+    LearnedGeometrySourceSummary,
+    inspect_learned_geometry_output,
+    learned_geometry_expected_artifacts,
+    learned_geometry_expected_sidecars,
+    learned_geometry_import_assessment,
+)
 from pipeline.adapters.nerfstudio_adapter import NerfstudioSplatfactoAdapter
 from pipeline.adapters.open3d_adapter import Open3DDebugAdapter
 
@@ -24,12 +33,19 @@ __all__ = [
     "GEOMETRY_BUNDLE_SCHEMA_VERSION",
     "GsplatResearchAdapter",
     "LEARNED_GEOMETRY_BUNDLE_ARTIFACT_TYPE",
+    "LearnedGeometryImportError",
+    "LearnedGeometrySidecarCandidate",
+    "LearnedGeometrySourceSummary",
     "NerfstudioSplatfactoAdapter",
     "Open3DDebugAdapter",
     "PREDICTED_POINT_CLOUD_ARTIFACT_TYPE",
     "ReconstructionAdapter",
     "ReconstructionArtifact",
     "ReconstructionInput",
+    "inspect_learned_geometry_output",
+    "learned_geometry_expected_artifacts",
     "learned_geometry_expected_outputs",
+    "learned_geometry_expected_sidecars",
+    "learned_geometry_import_assessment",
     "validate_geometry_expected_outputs",
 ]

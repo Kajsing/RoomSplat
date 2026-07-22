@@ -36,8 +36,10 @@ node --experimental-strip-types --test frontend/tests/*.test.ts
 17. Download the exported file through the artifact download URL.
 18. If learned geometry metadata exists, verify `GET /projects/{project_id}/geometry-bundle` validates `metadata/geometry_bundle.json` and that declared primary PLYs are labeled `predicted_point_cloud_ply`.
 19. Confirm incomplete or escaped learned geometry bundles are rejected and do not promote their primary artifacts.
-20. Confirm the backend is bound to `127.0.0.1` for local v1 use.
-21. Confirm generated data remains ignored by Git.
+20. Run `learned_geometry_preflight` against a completed local output folder with `.complete.json` and `points.ply`.
+21. Run `import_learned_geometry` and confirm it writes `metadata/geometry_bundle.json`, `reconstruction/learned-point-cloud.ply`, and copied sidecars under `metadata/learned/<adapter-slug>/`.
+22. Confirm the backend is bound to `127.0.0.1` for local v1 use.
+23. Confirm generated data remains ignored by Git.
 
 ## Validation principle
 
@@ -83,6 +85,29 @@ Manual/API checks:
 - Confirm incomplete bundles, escaped sidecars, missing primary artifacts, and mismatched primary artifact extensions fail validation.
 - Confirm invalid bundle primary PLYs do not fall back to generic `point_cloud_ply` labeling.
 - Confirm no learned-model runtime, automatic checkpoint download, or external server binding is required by this readiness slice.
+
+## Learned Geometry Import v1
+
+Focused validation for the Milestone 10 import/preflight flow:
+
+```bash
+python -m pytest backend/tests/test_learned_geometry_import.py backend/tests/test_geometry_bundle.py pipeline/tests/test_learned_geometry_source_import.py pipeline/tests/test_learned_geometry_contract.py
+node --experimental-strip-types --test frontend/tests/*.test.ts
+npm --prefix frontend run build
+```
+
+Manual/API checks:
+
+- Extract frames for a project first.
+- Prepare a local completed learned-geometry output folder with `.complete.json`, `points.ply`, and any sidecars declared in `metadata.frame_keys`.
+- Create a `learned_geometry_preflight` job with `source_dir`, `source_adapter`, and optional `primary_ply`.
+- Confirm the preflight reports mapped frame count, capabilities, sidecar count, expected `learned_geometry_bundle`, and expected `predicted_point_cloud_ply`.
+- Create an `import_learned_geometry` job with the same params.
+- Confirm the primary PLY is copied to `reconstruction/learned-point-cloud.ply`.
+- Confirm known sidecars are copied under `metadata/learned/<adapter-slug>/`.
+- Confirm `GET /projects/{project_id}/geometry-bundle` returns `is_reconstruction: false`, `not_reconstruction: true`, capabilities, frame map, cameras/trajectory/intrinsics when present, warnings, and generated-data rules.
+- Confirm `GET /projects/{project_id}/artifacts` lists `reconstruction/learned-point-cloud.ply` as `predicted_point_cloud_ply` and `metadata/geometry_bundle.json` as `learned_geometry_bundle`.
+- Confirm missing project frames, missing `.complete.json`, escaped source-relative paths, missing primary PLY, missing declared sidecar folders, and out-of-range frame indices fail without writing a promoted learned artifact.
 
 ## Reconstruction Quality + Camera Path v1
 

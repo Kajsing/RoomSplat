@@ -65,6 +65,16 @@ Learned/feed-forward geometry adapters must use the shared geometry bundle contr
 This contract is only a local artifact boundary. It does not add a learned-model runtime,
 checkpoint loader, automatic download, or LingBot-Map dependency.
 
+`pipeline.adapters.learned_geometry_import` provides the first concrete preflight helpers
+for completed local learned-output folders:
+
+- `inspect_learned_geometry_output(source_dir, primary_ply="points.ply")` validates a LingBot/BSS-inspired folder with `.complete.json`, primary PLY, optional `traj.txt`, optional `intrinsics.txt`, optional `sampling.json`, and declared frame sidecar folders.
+- `learned_geometry_import_assessment()` declares the RoomSplat outputs a future adapter/import job should produce: `metadata/geometry_bundle.json` and `reconstruction/learned-point-cloud.ply`.
+- `learned_geometry_expected_sidecars(frame_keys)` returns the sidecar paths implied by completion metadata.
+
+These helpers are for preflight and normalization only. They do not import LingBot-Map,
+load model checkpoints, run inference, download weights, or start an external viewer.
+
 Current adapters:
 
 - `colmap`: camera poses and sparse conventional point cloud.

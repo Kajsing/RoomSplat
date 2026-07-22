@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { VIEWER_ORIENTATION_OPTIONS, formatViewerOrientationMode } from '../src/viewer/orientation.ts'
+import { formatGeometryBundleSummary, formatGeometryCapabilities, isLearnedGeometryJob } from '../src/viewer/geometryBundleHelpers.ts'
 import { artifactPriority, formatBytes, formatViewerArtifactType, isThreeViewerArtifact, sortArtifactsForViewer } from '../src/viewer/viewerHelpers.ts'
 
 test('formats viewer artifact labels', () => {
@@ -66,6 +67,16 @@ test('provides viewer orientation presets for imported artifacts', () => {
   assert.equal(formatViewerOrientationMode('flip-y'), 'Flip Y')
 })
 
+test('formats learned geometry bundle helper summaries', () => {
+  const metadata = fakeGeometryBundle()
+
+  assert.equal(formatGeometryBundleSummary(metadata), '2 mapped frames, 1 primary artifacts, 3 sidecars')
+  assert.equal(formatGeometryCapabilities(metadata), 'depth, confidence, pointmap')
+  assert.equal(isLearnedGeometryJob('learned_geometry_preflight'), true)
+  assert.equal(isLearnedGeometryJob('import_learned_geometry'), true)
+  assert.equal(isLearnedGeometryJob('reconstruct_splat'), false)
+})
+
 function fakeArtifact(relativePath, artifactType) {
   return {
     id: relativePath,
@@ -78,5 +89,52 @@ function fakeArtifact(relativePath, artifactType) {
     modified_at: '2026-07-04T00:00:00+00:00',
     download_url: '/download',
     description: '',
+  }
+}
+
+function fakeGeometryBundle() {
+  return {
+    project_id: 'project',
+    schema_version: 'roomsplat.geometry_bundle.v1',
+    artifact_type: 'learned_geometry_bundle',
+    mode: 'learned_geometry',
+    source_adapter: 'lingbot-map-bss',
+    adapter_family: 'feed_forward',
+    status: 'complete',
+    complete: true,
+    is_reconstruction: false,
+    not_reconstruction: true,
+    frame_count: 2,
+    frame_index_map: [
+      { bundle_frame_index: 0, source_frame_index: 0, source_frame: 'frames/frame_000001.png' },
+      { bundle_frame_index: 1, source_frame_index: 1, source_frame: 'frames/frame_000002.png' },
+    ],
+    cameras: [],
+    intrinsics: [],
+    trajectory: [],
+    capabilities: { depth: true, confidence: true, mask: false, pointmap: true },
+    primary_artifacts: [
+      {
+        relative_path: 'reconstruction/learned-point-cloud.ply',
+        artifact_type: 'predicted_point_cloud_ply',
+        role: 'primary',
+        description: 'Predicted point cloud.',
+      },
+    ],
+    sidecars: [
+      { relative_path: 'metadata/learned/source/.complete.json', sidecar_type: 'metadata', required: true, description: 'Completion marker.' },
+      { relative_path: 'metadata/learned/source/depth/000000.exr', sidecar_type: 'depth', required: true, description: 'Depth.' },
+      { relative_path: 'metadata/learned/source/points/000000.exr', sidecar_type: 'pointmap', required: true, description: 'Pointmap.' },
+    ],
+    quality: { status: 'needs_review', notes: 'Inspect visually.' },
+    warnings: [],
+    generated_data_rules: {
+      local_only: true,
+      no_auto_downloads: true,
+      contained_under_project: true,
+      ignored_by_git: true,
+      notes: 'Generated files stay local.',
+    },
+    generated_at: null,
   }
 }

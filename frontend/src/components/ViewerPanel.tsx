@@ -11,7 +11,9 @@ import {
   ExportResult,
   getDebugFrameCloudMetadata,
   getFrameExtraction,
+  getGeometryBundleMetadata,
   getReconstructionMetadata,
+  GeometryBundleMetadata,
   Job,
   listArtifacts,
   listJobs,
@@ -19,6 +21,7 @@ import {
   ReconstructionMetadata,
 } from '../api'
 import ThreeViewer from './ThreeViewer'
+import { formatGeometryBundleSummary, formatGeometryCapabilities } from '../viewer/geometryBundleHelpers'
 import { formatViewerArtifactType, isThreeViewerArtifact, sortArtifactsForViewer } from '../viewer/viewerHelpers'
 
 type ViewerPanelProps = {
@@ -33,6 +36,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
   const [debugText, setDebugText] = useState<string | null>(null)
   const [debugFrameCloudMetadata, setDebugFrameCloudMetadata] = useState<DebugFrameCloudMetadata | null>(null)
   const [reconstructionMetadata, setReconstructionMetadata] = useState<ReconstructionMetadata | null>(null)
+  const [geometryBundleMetadata, setGeometryBundleMetadata] = useState<GeometryBundleMetadata | null>(null)
   const [debugPreviewParams, setDebugPreviewParams] = useState({
     max_points: 50000,
     frame_step: 1,
@@ -69,6 +73,7 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
     setDebugText(null)
     setDebugFrameCloudMetadata(null)
     setReconstructionMetadata(null)
+    setGeometryBundleMetadata(null)
     setError(null)
     if (!project || !selectedArtifact) return
 
@@ -92,6 +97,12 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
       getReconstructionMetadata(project.id)
         .then(setReconstructionMetadata)
         .catch(() => setReconstructionMetadata(null))
+    }
+
+    if (selectedArtifact.artifact_type === 'learned_geometry_bundle') {
+      getGeometryBundleMetadata(project.id)
+        .then(setGeometryBundleMetadata)
+        .catch((reason: Error) => setError(reason.message))
     }
   }, [project, selectedArtifact])
 
@@ -289,6 +300,9 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
                   />
                 ) : null}
                 {selectedArtifact.artifact_type === 'debug_report' && debugText ? <pre style={preStyle}>{debugText}</pre> : null}
+                {selectedArtifact.artifact_type === 'learned_geometry_bundle' && geometryBundleMetadata ? (
+                  <GeometryBundleDetails metadata={geometryBundleMetadata} />
+                ) : null}
               </>
             ) : null}
           </div>
@@ -297,6 +311,39 @@ export default function ViewerPanel({ project, activeJob, onJobChange }: ViewerP
 
       {error ? <p style={errorStyle}>{error}</p> : null}
     </section>
+  )
+}
+
+function GeometryBundleDetails({ metadata }: { metadata: GeometryBundleMetadata }) {
+  return (
+    <div style={metadataPanelStyle}>
+      <div style={metadataRowStyle}>
+        <strong>{metadata.source_adapter}</strong>
+        <span>{formatGeometryBundleSummary(metadata)}</span>
+        <span>Capabilities: {formatGeometryCapabilities(metadata)}</span>
+      </div>
+      <div style={metadataRowStyle}>
+        <span>Status: {metadata.status}</span>
+        <span>Not reconstruction: {metadata.not_reconstruction ? 'true' : 'false'}</span>
+      </div>
+      {metadata.primary_artifacts.length > 0 ? (
+        <ul style={compactListStyle}>
+          {metadata.primary_artifacts.map((artifact) => (
+            <li key={artifact.relative_path}>
+              <strong>{artifact.artifact_type}</strong> {artifact.relative_path}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {metadata.warnings.length > 0 ? (
+        <ul style={warningListStyle}>
+          {metadata.warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      ) : null}
+      <pre style={preStyle}>{JSON.stringify(metadata, null, 2)}</pre>
+    </div>
   )
 }
 
@@ -440,4 +487,27 @@ const errorStyle = {
 const successStyle = {
   color: '#1f883d',
   fontWeight: 600,
+} satisfies CSSProperties
+
+const metadataPanelStyle = {
+  display: 'grid',
+  gap: 10,
+} satisfies CSSProperties
+
+const metadataRowStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 12,
+} satisfies CSSProperties
+
+const compactListStyle = {
+  display: 'grid',
+  gap: 4,
+  margin: 0,
+  paddingLeft: 18,
+} satisfies CSSProperties
+
+const warningListStyle = {
+  ...compactListStyle,
+  color: '#9a6700',
 } satisfies CSSProperties

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { createJob, getJob, Job, listJobs, Project } from '../api'
+import { isLearnedGeometryJob } from '../viewer/geometryBundleHelpers'
 
 type ReconstructionPreset = 'quick' | 'balanced' | 'detail'
 type ReconstructionMatcher = 'exhaustive' | 'sequential'
@@ -19,6 +20,9 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
   const [useGpu, setUseGpu] = useState(false)
   const [splatMethod, setSplatMethod] = useState<SplatMethod>('splatfacto')
   const [splatMaxIterations, setSplatMaxIterations] = useState('3000')
+  const [learnedSourceDir, setLearnedSourceDir] = useState('')
+  const [learnedSourceAdapter, setLearnedSourceAdapter] = useState('local-learned-geometry')
+  const [learnedPrimaryPly, setLearnedPrimaryPly] = useState('points.ply')
   const [isStarting, setIsStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -91,6 +95,33 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
     }
   }
 
+  async function handleLearnedGeometryPreflight() {
+    await startLearnedGeometryJob('learned_geometry_preflight')
+  }
+
+  async function handleLearnedGeometryImport() {
+    await startLearnedGeometryJob('import_learned_geometry')
+  }
+
+  async function startLearnedGeometryJob(jobType: 'learned_geometry_preflight' | 'import_learned_geometry') {
+    if (!project) return
+    setError(null)
+    setIsStarting(true)
+    try {
+      const job = await createJob(project.id, jobType, {
+        source_dir: learnedSourceDir,
+        source_adapter: learnedSourceAdapter,
+        primary_ply: learnedPrimaryPly,
+      })
+      onJobChange(job)
+      setJobs((currentJobs) => upsertJob(currentJobs, job))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not start learned geometry job')
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
   return (
     <section style={sectionStyle}>
       <div>
@@ -154,6 +185,43 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
         <span style={hintStyle}>{presetHint(preset)}</span>
       </div>
 
+      <div style={learnedOptionsStyle}>
+        <label style={wideInputLabelStyle}>
+          Learned source folder
+          <input
+            onChange={(event) => setLearnedSourceDir(event.target.value)}
+            placeholder="C:\\path\\to\\learned-output"
+            style={textInputStyle}
+            type="text"
+            value={learnedSourceDir}
+          />
+        </label>
+        <label style={inputLabelStyle}>
+          Adapter
+          <input
+            onChange={(event) => setLearnedSourceAdapter(event.target.value)}
+            style={textInputStyle}
+            type="text"
+            value={learnedSourceAdapter}
+          />
+        </label>
+        <label style={inputLabelStyle}>
+          Primary PLY
+          <input
+            onChange={(event) => setLearnedPrimaryPly(event.target.value)}
+            style={textInputStyle}
+            type="text"
+            value={learnedPrimaryPly}
+          />
+        </label>
+        <button disabled={!project || isStarting || !learnedSourceDir.trim()} onClick={handleLearnedGeometryPreflight} style={secondaryButtonStyle} type="button">
+          Preflight learned output
+        </button>
+        <button disabled={!project || isStarting || !learnedSourceDir.trim()} onClick={handleLearnedGeometryImport} style={buttonStyle} type="button">
+          Import learned output
+        </button>
+      </div>
+
       {activeJob ? (
         <div style={activeJobStyle}>
           <strong>{formatJobType(activeJob.job_type)}</strong>
@@ -194,6 +262,8 @@ function formatJobType(jobType: Job['job_type']) {
     debug_frame_cloud: 'Debug 3D preview',
     reconstruct_point_cloud: 'Point cloud reconstruction',
     reconstruct_splat: 'Splat reconstruction',
+    learned_geometry_preflight: 'Learned geometry preflight',
+    import_learned_geometry: 'Learned geometry import',
   }
   return labels[jobType]
 }
@@ -216,6 +286,13 @@ function summarizeResult(job: Job) {
     const status = String(job.result?.status ?? 'pending')
     const warning = typeof job.result?.warning === 'string' ? `: ${job.result.warning}` : ''
     return `${status}${warning}`
+  }
+  if (isLearnedGeometryJob(job.job_type)) {
+    if (job.job_type === 'learned_geometry_preflight') {
+      return `${job.result?.frame_count ?? '?'} mapped frames, ${job.result?.sidecar_count ?? '?'} sidecars`
+    }
+    const sourceAdapter = typeof job.result?.source_adapter === 'string' ? `, ${job.result.source_adapter}` : ''
+    return `${job.result?.frame_count ?? '?'} mapped frames${sourceAdapter}`
   }
   return String(job.result?.status ?? 'report ready')
 }
@@ -285,6 +362,11 @@ const inputLabelStyle = {
   gap: 4,
 } satisfies CSSProperties
 
+const wideInputLabelStyle = {
+  ...inputLabelStyle,
+  minWidth: 280,
+} satisfies CSSProperties
+
 const selectStyle = {
   border: '1px solid #d0d7de',
   borderRadius: 6,
@@ -297,6 +379,14 @@ const numberInputStyle = {
   borderRadius: 6,
   color: '#24292f',
   maxWidth: 130,
+  padding: '7px 8px',
+} satisfies CSSProperties
+
+const textInputStyle = {
+  border: '1px solid #d0d7de',
+  borderRadius: 6,
+  color: '#24292f',
+  minWidth: 120,
   padding: '7px 8px',
 } satisfies CSSProperties
 
@@ -314,6 +404,16 @@ const hintStyle = {
   fontSize: 13,
   minHeight: 34,
   paddingTop: 9,
+} satisfies CSSProperties
+
+const learnedOptionsStyle = {
+  alignItems: 'end',
+  borderTop: '1px solid #d8dee4',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 10,
+  marginBottom: 16,
+  paddingTop: 14,
 } satisfies CSSProperties
 
 const activeJobStyle = {

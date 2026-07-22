@@ -14,7 +14,12 @@ project-root/
     geometry_bundle.json
     reconstruction_spike.json
     learned/
-      depth/confidence/mask/pointmap sidecars
+      <adapter-slug>/
+        .complete.json
+        traj.txt
+        intrinsics.txt
+        sampling.json
+        depth/confidence/mask/points sidecars
     exports/
       <export-id>.json
     jobs/
@@ -134,6 +139,22 @@ When Nerfstudio is missing, the job writes metadata with `status: blocked_missin
 
 `metadata/geometry_bundle.json` is the adapter-neutral contract for future LingBot-Map/VGGT-style feed-forward adapters. The bundle is valid only when every declared required file resolves inside the project and exists.
 
+RoomSplat can also normalize a completed local learned-geometry output folder through jobs:
+
+- `learned_geometry_preflight` validates the local source folder and project frame mapping without copying outputs.
+- `import_learned_geometry` copies the primary PLY to `reconstruction/learned-point-cloud.ply`, copies known sidecars under `metadata/learned/<adapter-slug>/`, writes `metadata/geometry_bundle.json`, then validates the completed bundle.
+
+The LingBot/BSS-inspired source-folder shape is:
+
+- `.complete.json` with `metadata.frame_keys`, `metadata.global_keys`, and optional `metadata.frame_index_map`
+- primary PLY, default `points.ply`
+- optional `traj.txt` using BSS trajectory rows: `frame_idx` plus 12 camera-to-world values
+- optional `intrinsics.txt` using rows: `frame_idx fx fy cx cy width height`
+- optional `sampling.json`
+- optional per-frame sidecar folders: `depth/`, `confidence/`, `mask/`, `points/`
+
+The source folder may live outside the RoomSplat project because it is read-only input. All copied outputs and all bundle-declared paths must end inside the selected project folder.
+
 Required/high-value fields:
 
 - `schema_version: roomsplat.geometry_bundle.v1`
@@ -166,6 +187,7 @@ Validation rules:
 - `predicted_point_cloud_ply` primary artifacts must use `.ply`.
 - `mesh_glb` primary artifacts must use `.glb`.
 - Learned geometry must set `is_reconstruction: false` and `not_reconstruction: true` until a later adapter explicitly promotes or converts it into another verified artifact type.
+- Declared `depth`, `confidence`, `mask`, and `points` frame keys require matching source sidecar folders during import.
 
 Artifact listing sorts real `reconstruction/splat.ply` first when present, then sparse point-cloud reconstruction, learned/predicted point clouds, other point clouds/GLB, debug frame planes, learned geometry bundle metadata, debug reports, and placeholder exports. Placeholder exports remain downloadable, but should appear visually lower priority than real outputs.
 

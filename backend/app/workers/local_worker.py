@@ -9,6 +9,7 @@ from app.models.schemas import JobResponse
 from app.services.debug_frame_cloud import DebugFrameCloudService
 from app.services.frame_extraction import FrameExtractionService
 from app.services.job_store import JobStore
+from app.services.learned_geometry_import import LearnedGeometryImportService
 from app.services.project_store import ProjectStore
 from app.services.reconstruction_jobs import ReconstructionService
 from app.services.splat_reconstruction import SplatReconstructionService
@@ -42,6 +43,10 @@ class LocalWorker:
             return self._run_reconstruct_point_cloud(job)
         if job.job_type == "reconstruct_splat":
             return self._run_reconstruct_splat(job)
+        if job.job_type == "learned_geometry_preflight":
+            return self._run_learned_geometry_preflight(job)
+        if job.job_type == "import_learned_geometry":
+            return self._run_import_learned_geometry(job)
         raise ValueError(f"Unsupported job type: {job.job_type}")
 
     def _run_frame_extraction(self, job: JobResponse) -> dict[str, Any]:
@@ -111,6 +116,28 @@ class LocalWorker:
             self.job_store.append_log(job.project_id, job.id, f"wrote Gaussian splat: {result['output_path']}")
         else:
             self.job_store.append_log(job.project_id, job.id, f"splat reconstruction not ready: {result['status']}")
+        return result
+
+    def _run_learned_geometry_preflight(self, job: JobResponse) -> dict[str, Any]:
+        service = LearnedGeometryImportService(self.project_store)
+        result = service.preflight(
+            job.project_id,
+            source_dir=job.params.get("source_dir"),
+            source_adapter=job.params.get("source_adapter", "local-learned-geometry"),
+            primary_ply=job.params.get("primary_ply", "points.ply"),
+        )
+        self.job_store.append_log(job.project_id, job.id, f"learned geometry import preflight ready: {result['frame_count']} mapped frames")
+        return result
+
+    def _run_import_learned_geometry(self, job: JobResponse) -> dict[str, Any]:
+        service = LearnedGeometryImportService(self.project_store)
+        result = service.import_output(
+            job.project_id,
+            source_dir=job.params.get("source_dir"),
+            source_adapter=job.params.get("source_adapter", "local-learned-geometry"),
+            primary_ply=job.params.get("primary_ply", "points.ply"),
+        )
+        self.job_store.append_log(job.project_id, job.id, "imported learned geometry bundle: metadata/geometry_bundle.json")
         return result
 
 

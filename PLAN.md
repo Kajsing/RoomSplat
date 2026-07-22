@@ -228,6 +228,44 @@ Stop condition:
 
 Stop before adding a direct LingBot-Map or similar model runtime dependency if it requires changing RoomSplat's Windows-native, local-only, no-cloud, or no-paid-dependency assumptions. Document the alternative and ask before changing direction.
 
+## Milestone 10 - Learned Geometry Import v1
+
+Goal: Add a RoomSplat-native optional import/preflight path for completed local learned-geometry output folders, without adding LingBot-Map, VGGT, checkpoints, model downloads, cloud dependencies, or a required learned runtime.
+
+Inspiration sources:
+
+- Local reference copy: `C:\project\lingbot-map`.
+- LingBot/BSS-style completed output folders with `.complete.json`, global `points.ply`, `traj.txt`, `intrinsics.txt`, `sampling.json`, and optional `depth/`, `confidence/`, `mask/`, and `points/` sidecar folders.
+
+Acceptance criteria:
+
+- Add pipeline preflight helpers that inspect a completed local learned-output folder and report expected geometry bundle artifacts and sidecars.
+- Add backend job/API flow:
+  - `learned_geometry_preflight` validates project frames plus source folder completeness without copying outputs.
+  - `import_learned_geometry` copies the primary PLY to `reconstruction/learned-point-cloud.ply`, copies known sidecars under `metadata/learned/<adapter-slug>/`, writes `metadata/geometry_bundle.json`, and validates it.
+- Keep all written output paths contained under the selected project folder.
+- Reject missing extracted frames, missing `.complete.json`, missing primary PLY, escaped source-relative paths, missing declared sidecars, and out-of-range frame maps.
+- Label imported PLY as `predicted_point_cloud_ply`, never `point_cloud_ply` or `splat_ply`.
+- Keep imported learned geometry marked `is_reconstruction: false` and `not_reconstruction: true`.
+- Update frontend job controls for learned geometry preflight/import.
+- Display geometry bundle metadata separately from 3D artifacts in the viewer.
+- Add focused backend, pipeline, and frontend helper tests.
+- Update README, documentation, security notes, validation docs, and logs.
+
+Validation:
+
+```bash
+python -m pytest backend/tests pipeline/tests
+node --experimental-strip-types --test frontend/tests/*.test.ts
+npm --prefix frontend run build
+git diff --check
+git status --short
+```
+
+Stop condition:
+
+Stop before adding a direct learned-model runtime, checkpoint loader, automatic model download, public server binding, or non-local dependency. Document the alternative and ask before changing direction.
+
 ## Future milestones, not v1
 
 - Live stream/webcam ingestion.

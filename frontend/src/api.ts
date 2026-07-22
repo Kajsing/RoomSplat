@@ -43,7 +43,14 @@ export type FrameExtractionOptions = {
   max_frames?: number
 }
 
-export type JobType = 'frame_extraction' | 'reconstruction_spike' | 'debug_frame_cloud' | 'reconstruct_point_cloud' | 'reconstruct_splat'
+export type JobType =
+  | 'frame_extraction'
+  | 'reconstruction_spike'
+  | 'debug_frame_cloud'
+  | 'reconstruct_point_cloud'
+  | 'reconstruct_splat'
+  | 'learned_geometry_preflight'
+  | 'import_learned_geometry'
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed'
 
 export type Job = {
@@ -278,7 +285,7 @@ export type GeometryBundleMetadata = {
   }>
   sidecars: Array<{
     relative_path: string
-    sidecar_type: 'depth' | 'confidence' | 'mask' | 'camera_poses' | 'intrinsics' | 'trajectory' | 'sampling' | 'metadata' | 'other'
+    sidecar_type: 'depth' | 'confidence' | 'mask' | 'pointmap' | 'camera_poses' | 'intrinsics' | 'trajectory' | 'sampling' | 'metadata' | 'other'
     required: boolean
     description: string
   }>

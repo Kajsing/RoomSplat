@@ -73,6 +73,21 @@ Controls:
 - Learned/predicted PLY outputs are labeled `predicted_point_cloud_ply`, distinct from COLMAP `point_cloud_ply` and Gaussian `splat_ply`.
 - No automatic model/download/checkpoint behavior was added.
 
+### Hardened: learned geometry import boundary
+
+Milestone 10 adds `learned_geometry_preflight` and `import_learned_geometry` jobs. These jobs may read a user-provided local source folder outside the project, but they only write normalized outputs inside the selected RoomSplat project.
+
+Controls:
+
+- Source-relative `primary_ply` and sidecar paths reject absolute paths and `..` traversal before copy.
+- `.complete.json` is required so half-written learned output folders are rejected.
+- Declared frame sidecars such as `depth`, `confidence`, `mask`, and `points` must exist when completion metadata declares them.
+- Imported primary PLYs are copied to `reconstruction/learned-point-cloud.ply` and only promoted after `metadata/geometry_bundle.json` validates.
+- Copied sidecars are written under `metadata/learned/<adapter-slug>/`.
+- Project frame mapping is validated against existing extracted frames; out-of-range frame indices fail the job.
+- Imported learned geometry remains `is_reconstruction: false` and `not_reconstruction: true`.
+- The import jobs do not run LingBot-Map, load checkpoints, download models, or start external viewers.
+
 ## Reviewed controls
 
 - Project IDs are restricted to 32 lowercase hex characters before folder resolution.
@@ -83,6 +98,7 @@ Controls:
 - Artifact IDs decode to relative paths only; absolute and parent paths are rejected.
 - Artifact listing and downloads only expose files that resolve inside the project folder.
 - Learned geometry bundle paths are rejected if absolute, parent-relative, escaped through symlinks, missing when required, or inconsistent with declared artifact extensions.
+- Learned geometry import source-relative paths are rejected if absolute, parent-relative, missing when declared, or inconsistent with the completed source-folder contract.
 - Export creation writes only under `exports/` and records `real` versus `placeholder` status.
 - Placeholder exports are explicit debug/workflow artifacts and are not labeled as real reconstruction.
 - Frame Room Cloud outputs are explicit debug viewer artifacts and are not labeled as real reconstruction.
@@ -96,6 +112,7 @@ Controls:
 - API responses currently include local filesystem paths for operator transparency; this is acceptable for local-only v1 but should be revisited before LAN or shared use.
 - Future real reconstruction adapters must preserve the same containment checks and avoid shell invocation.
 - Future learned adapters must not use untrusted pickle checkpoints, automatic downloads, arbitrary output paths, or `0.0.0.0` viewer binding without a new security review.
+- Learned geometry import currently trusts the local operator to choose an intended source folder; before exposing the backend beyond localhost, this external local read capability needs authentication and access controls.
 - Real GLB conversion remains future work even though the browser can now render GLB scene artifacts when they exist.
 - The current security baseline is focused and artifact-backed, not a complete production penetration test.
 

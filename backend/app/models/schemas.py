@@ -53,7 +53,15 @@ class FrameExtractionResponse(BaseModel):
     extracted_at: str
 
 
-JobType = Literal["frame_extraction", "reconstruction_spike", "debug_frame_cloud", "reconstruct_point_cloud", "reconstruct_splat"]
+JobType = Literal[
+    "frame_extraction",
+    "reconstruction_spike",
+    "debug_frame_cloud",
+    "reconstruct_point_cloud",
+    "reconstruct_splat",
+    "learned_geometry_preflight",
+    "import_learned_geometry",
+]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 ArtifactType = Literal[
     "debug_frame_cloud_ply",
