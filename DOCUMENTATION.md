@@ -2,9 +2,9 @@
 
 ## Current status
 
-Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness implemented; learned geometry import/preflight v1 implemented; local learned runtime smoke path implemented.
-Current milestone: Milestone 11 - Local Learned Runtime Smoke Path complete.
-Next planned milestone: run a real configured learned adapter/checkpoint smoke on the Windows/RTX 3080 Ti machine, then tune frame/resize/precision budget based on observed VRAM and viewer output. Tablet support remains a stretch capture/viewer workflow, not a v1 on-device inference requirement.
+Status: Milestone 0 scaffolded; Milestone 1 skeleton implemented; Milestone 2 local project storage implemented; Milestone 3 video import and frame extraction implemented; Milestone 4 adapter-first reconstruction spike implemented; Milestone 5 local job system implemented; Milestone 6 artifact viewer integration implemented; Milestone 7 export service implemented; Milestone 8 v1 hardening and security baseline implemented; Splat-first Three.js browser viewer implemented; Usable 3D Viewer Preview implemented; Real Reconstruction Preview v1 implemented; Reconstruction Quality + Camera Path v1 implemented; Real Splat Pipeline Adapter v1 implemented; LingBot-Map-inspired learned geometry adapter readiness implemented; learned geometry import/preflight v1 implemented; local learned runtime smoke path implemented; VGGT-first runtime wrapper implemented.
+Current milestone: VGGT-first learned runtime wrapper complete.
+Next planned milestone: manually install/configure VGGT dependencies and a trusted checkpoint, run the first real 8-12 frame VGGT smoke on the Windows/RTX 3080 Ti machine, then tune frame/resize/precision budget based on observed VRAM and viewer output. Tablet support remains a stretch capture/viewer workflow, not a v1 on-device inference requirement.
 
 ## Latest completed milestone
 
@@ -80,6 +80,13 @@ npm --prefix frontend run build
 
 - `python --version`
 - `node --version`
+- `py -3.12 pipeline\scripts\run_vggt_runtime.py --help` - passed.
+- `$env:PYTHONPATH='backend'; py -3.12 -m pytest pipeline/tests/test_vggt_runtime_wrapper.py pipeline/tests/test_learned_runtime_adapter.py backend/tests/test_learned_runtime.py` - passed, 14 tests.
+- Direct local `learned_runtime_smoke` with VGGT wrapper command configured but no checkpoint - passed as diagnostic: `blocked_missing_checkpoint`, `output_path: null`, no `metadata/geometry_bundle.json`, no `reconstruction/learned-point-cloud.ply`.
+- `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 122 tests after VGGT wrapper.
+- Bundled Node frontend helper tests - passed, 12 tests after VGGT wrapper.
+- Bundled Node Vite build from `frontend/` - passed after VGGT wrapper with the existing large chunk warning.
+- `git diff --check` - passed after VGGT wrapper with line-ending warnings only.
 - `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 116 tests after Milestone 11 local learned runtime smoke path.
 - Bundled Node frontend helper tests - passed, 12 tests after Milestone 11.
 - Bundled Node Vite build from `frontend/` - passed after Milestone 11 with the existing large chunk warning.
@@ -415,6 +422,43 @@ Recommended next milestone after current work: install/verify Nerfstudio environ
 - Manual screenshot: ignored `data/manual-verification/recognizable-splat-chair-masked-1000-gaussian-fallback-large-view.png`.
 - Pixel check for the masked-chair screenshot: 598x830, 31,085 unique colors, 53,132 non-background pixels, 5,690 orange pixels, orange bbox 230x212 px.
 - Current assessment: this satisfies the first recognizable RoomSplat splat goal as a recognizable orange bowl-chair object from a real local Nerfstudio/Splatfacto reconstruction, with the limitation that browser native splat rendering still falls back.
+
+## VGGT-first learned runtime wrapper notes
+
+- Added `pipeline/scripts/run_vggt_runtime.py` as the first concrete learned-model wrapper.
+- The wrapper follows the Milestone 11 runtime command contract:
+  - `--frames-dir`
+  - `--output-dir`
+  - `--checkpoint`
+  - `--max-frames`
+  - `--image-max-size`
+  - `--precision`
+  - `--frame-index-map`
+  - optional `--allow-cpu-offload`
+- The wrapper performs no automatic model or checkpoint downloads.
+- Successful real inference writes a RoomSplat-importable completed folder:
+  - `.complete.json`
+  - `points.ply`
+  - `sampling.json`
+  - `traj.txt` when camera predictions are available
+  - `intrinsics.txt` when camera predictions are available
+- Frontend learned runtime adapter default now uses `vggt`.
+- Added `docs/vggt-runtime.md` with manual checkpoint path, SHA-256, disk/VRAM expectations, `.env` setup, and smoke settings.
+- Local machine state during this slice:
+  - `nvidia-smi` saw NVIDIA GeForce RTX 3080 Ti with 12,288 MB total VRAM and 8,878 MB free.
+  - Existing Nerfstudio micromamba envs had `torch`, `torchvision`, and `numpy`.
+  - Existing envs did not have `vggt`, `safetensors`, or `huggingface_hub`.
+  - No VGGT checkpoint was present under `data/models`.
+- Real VGGT inference was not run because dependency/checkpoint acquisition is manual by design.
+- Blocked validation:
+  - a direct `learned_runtime_smoke` with the VGGT wrapper command configured and no checkpoint returned `blocked_missing_checkpoint`;
+  - no fake `metadata/geometry_bundle.json` or `reconstruction/learned-point-cloud.ply` was written.
+- Validation:
+  - `py -3.12 pipeline\scripts\run_vggt_runtime.py --help` - passed.
+  - `$env:PYTHONPATH='backend'; py -3.12 -m pytest backend/tests pipeline/tests` - passed, 122 tests.
+  - Bundled Node frontend helper tests - passed, 12 tests.
+  - Bundled Node Vite build from `frontend/` - passed with the existing large chunk warning.
+  - `git diff --check` - passed with line-ending warnings only.
 
 ## Milestone 11 local learned runtime smoke path notes
 

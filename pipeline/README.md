@@ -95,6 +95,20 @@ At minimum, RoomSplat expects `.complete.json` and `points.ply`; `traj.txt`,
 when declared by completion metadata. Successful output is imported through the existing
 geometry bundle flow. Blocked or failed runtime jobs must not write placeholder geometry.
 
+The first concrete wrapper is:
+
+```bash
+python pipeline/scripts/run_vggt_runtime.py --help
+```
+
+It is VGGT-first and local-only:
+
+- consumes selected RoomSplat frames;
+- loads a user-supplied local VGGT checkpoint;
+- performs no automatic model download;
+- writes `.complete.json`, `points.ply`, `sampling.json`, and camera `traj.txt`/`intrinsics.txt` when available;
+- labels output only through the geometry bundle import path as `predicted_point_cloud_ply`.
+
 Current adapters:
 
 - `colmap`: camera poses and sparse conventional point cloud.

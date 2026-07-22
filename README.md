@@ -15,6 +15,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - Local background jobs for frame extraction, reconstruction-spike orchestration, debug frame planes, real sparse point-cloud reconstruction, and Nerfstudio-backed splat reconstruction readiness/training/export.
 - Local learned-geometry preflight/import jobs for completed output folders with `.complete.json`, `points.ply`, trajectory/intrinsics files, and optional depth/confidence/mask/pointmap sidecars.
 - Controlled local learned-runtime preflight/smoke jobs that can check GPU/CUDA/PyTorch/checkpoint readiness, apply a deterministic frame budget, invoke a local adapter command, and import successful output through the geometry bundle path.
+- VGGT-first runtime wrapper at `pipeline/scripts/run_vggt_runtime.py` for local feed-forward predicted point-cloud smoke tests when a manually installed VGGT environment and trusted checkpoint are configured.
 - Artifact discovery/download APIs with explicit labels for debug frame clouds, point clouds, real splats, GLB, and debug reports.
 - Browser Three.js viewer with orbit/inspect controls, large-view mode, camera presets, orientation presets, stats, screenshot capture, frame markers for debug frame clouds, camera/path overlays for COLMAP point clouds, point cloud PLY, real `splat_ply` fallback viewing, and GLB scenes.
 - Export APIs and UI controls for `.ply` / `.glb` outputs, including explicit placeholder labels for debug exports.
@@ -33,7 +34,7 @@ Security model: v1 is a local single-user app. Bind the backend to `127.0.0.1`; 
 - No native Android app.
 - No cloud processing or user accounts.
 - No construction-grade measurement guarantees.
-- No built-in LingBot-Map/VGGT dependency or automatic model download. Learned runtime jobs only use a user-configured local adapter command and allowlisted local checkpoints.
+- No bundled LingBot-Map/VGGT dependency or automatic model download. The VGGT wrapper is present, but learned runtime jobs only use a user-configured local adapter command and allowlisted local checkpoints.
 
 ## Windows prerequisites
 
@@ -72,6 +73,8 @@ Copy `.env.example` to `.env` if you want local overrides. The backend reads `.e
 - `VITE_ROOMSPLAT_API_URL=http://127.0.0.1:8000`
 
 Keep generated project data under `data/` or another ignored local folder.
+
+For the VGGT-first wrapper, set `ROOMSPLAT_LEARNED_RUNTIME_COMMAND` to the Python executable in a local VGGT environment and set `ROOMSPLAT_LEARNED_RUNTIME_ARGS=pipeline\scripts\run_vggt_runtime.py`. See `docs/vggt-runtime.md`.
 
 ## Install backend
 
@@ -176,6 +179,7 @@ Learned model checkpoints should live under `data/models` or another ignored fol
 - `predicted_point_cloud_ply` is learned/predicted geometry imported through a validated geometry bundle; it is not a Gaussian splat, a COLMAP point cloud, or a verified metric scan.
 - `learned_geometry_bundle` is metadata for predicted geometry and sidecars; it is inspectable as JSON and is not itself renderable 3D.
 - `learned_runtime_preflight` and `learned_runtime_smoke` are local adapter jobs. They should report blocked diagnostics such as missing dependencies, missing checkpoints, untrusted checkpoints, or insufficient VRAM instead of writing placeholder geometry.
+- `pipeline/scripts/run_vggt_runtime.py` is the first concrete learned runtime wrapper. It writes a RoomSplat-importable completed folder from local VGGT predictions when VGGT dependencies and a trusted checkpoint are present.
 - `debug_frame_cloud_ply` is a deterministic viewer/debug point cloud sampled from flat extracted frames and placed in 3D; it is not a reconstruction.
 - `reconstruction/sparse-point-cloud.ply` is a real COLMAP sparse `point_cloud_ply` artifact when point-cloud reconstruction succeeds.
 - `splat_ply` is Gaussian splat data stored in a PLY-like format, not a conventional point cloud.
@@ -199,4 +203,5 @@ Learned model checkpoints should live under `data/models` or another ignored fol
 - `docs/project-format.md` - project storage, artifact labels, and export metadata.
 - `docs/security-baseline.md` - Milestone 8 focused security baseline.
 - `docs/risks.md` - current technical risks and mitigations.
+- `docs/vggt-runtime.md` - local VGGT wrapper setup, checkpoint policy, and smoke settings.
 - `docs/archive/roomsplat-dev-doc.md` - original handoff specification kept as historical reference.

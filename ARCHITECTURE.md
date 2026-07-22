@@ -102,6 +102,8 @@ frames -> deterministic keyframe selection -> local learned runtime command -> c
 
 The backend performs preflight before invoking a learned runtime. It checks configured command availability, optional PyTorch/CUDA diagnostics, `nvidia-smi` VRAM signals, checkpoint containment under `ROOMSPLAT_LEARNED_MODEL_ROOT`, checkpoint SHA-256 allowlisting, and frame/resize/precision/offload budget. RoomSplat does not download models automatically and does not treat blocked runtime diagnostics as geometry.
 
+The first concrete command wrapper is `pipeline/scripts/run_vggt_runtime.py`. It is VGGT-first, consumes selected frames, loads a local checkpoint only, writes `.complete.json` plus `points.ply`, and emits camera `traj.txt`/`intrinsics.txt` sidecars when VGGT camera predictions are available.
+
 ### Project storage
 
 Each project gets its own folder. The backend is the only layer that should write to project folders directly.

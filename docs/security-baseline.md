@@ -105,6 +105,19 @@ Controls:
 - Blocked statuses such as `blocked_missing_dependencies`, `blocked_missing_checkpoint`, `blocked_untrusted_checkpoint`, and `blocked_insufficient_vram` do not create fake geometry artifacts.
 - Frontend controls expose bounded max frames, frame step, image max size, precision, and CPU/offload flags without offering automatic downloads or public server exposure.
 
+### Hardened: VGGT-first wrapper
+
+`pipeline/scripts/run_vggt_runtime.py` is the first concrete learned runtime wrapper. It follows the Milestone 11 command contract and does not call `VGGT.from_pretrained` or `torch.hub.load_state_dict_from_url`.
+
+Controls:
+
+- The wrapper receives a local checkpoint path from RoomSplat.
+- Missing VGGT, PyTorch, safetensors, or Hugging Face runtime packages produce blocked diagnostics instead of fallback geometry.
+- `--dry-run` can validate the command contract and write blocked diagnostics without importing VGGT.
+- Output is written only to the `--output-dir` supplied by the backend learned runtime service.
+- The wrapper writes `.complete.json` and `points.ply` only after real inference output is available.
+- The output still must pass `import_learned_geometry` and geometry bundle validation before artifacts are promoted in the UI.
+
 ## Reviewed controls
 
 - Project IDs are restricted to 32 lowercase hex characters before folder resolution.
@@ -118,6 +131,7 @@ Controls:
 - Learned geometry import source-relative paths are rejected if absolute, parent-relative, missing when declared, or inconsistent with the completed source-folder contract.
 - Learned runtime checkpoint paths are restricted to the configured model root and must match the configured SHA-256 before execution.
 - Learned runtime selected frames and output folders are contained under the selected project directory.
+- The VGGT wrapper is local-only and does not include any automatic checkpoint acquisition path.
 - Export creation writes only under `exports/` and records `real` versus `placeholder` status.
 - Placeholder exports are explicit debug/workflow artifacts and are not labeled as real reconstruction.
 - Frame Room Cloud outputs are explicit debug viewer artifacts and are not labeled as real reconstruction.

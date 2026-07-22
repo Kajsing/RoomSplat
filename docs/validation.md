@@ -135,6 +135,33 @@ Manual/API checks:
 - If preflight is ready, confirm selected frames are materialized under `metadata/learned-runtime/...`, the external adapter output is imported, and `GET /projects/{project_id}/artifacts` labels `reconstruction/learned-point-cloud.ply` as `predicted_point_cloud_ply`.
 - Confirm the viewer can inspect the predicted PLY and geometry bundle metadata with warnings that the output is learned/predicted geometry, not a verified metric reconstruction.
 
+## VGGT Runtime Wrapper
+
+Focused validation for the first concrete learned runtime wrapper:
+
+```bash
+python pipeline/scripts/run_vggt_runtime.py --help
+python -m pytest pipeline/tests/test_vggt_runtime_wrapper.py
+```
+
+Manual checks before real inference:
+
+- Confirm `ROOMSPLAT_LEARNED_RUNTIME_COMMAND` points to the Python executable in a local VGGT environment.
+- Confirm `ROOMSPLAT_LEARNED_RUNTIME_ARGS` points to `pipeline\scripts\run_vggt_runtime.py`.
+- Confirm `ROOMSPLAT_LEARNED_CHECKPOINT_PATH` resolves under `ROOMSPLAT_LEARNED_MODEL_ROOT`.
+- Confirm `ROOMSPLAT_LEARNED_CHECKPOINT_SHA256` matches `Get-FileHash`.
+- Run `learned_runtime_preflight` with `adapter: vggt` and a small budget.
+- If preflight is ready, run `learned_runtime_smoke`; otherwise keep the blocked diagnostics as the validation artifact.
+
+Expected wrapper output when real inference succeeds:
+
+- `.complete.json`
+- `points.ply`
+- `sampling.json`
+- `traj.txt` and `intrinsics.txt` when camera predictions are available
+- imported `metadata/geometry_bundle.json`
+- listed `reconstruction/learned-point-cloud.ply` as `predicted_point_cloud_ply`
+
 ## Reconstruction Quality + Camera Path v1
 
 Focused validation for the camera/path metadata and viewer overlays:

@@ -23,7 +23,7 @@ export default function JobStatusPanel({ project, activeJob, onJobChange }: JobS
   const [learnedSourceDir, setLearnedSourceDir] = useState('')
   const [learnedSourceAdapter, setLearnedSourceAdapter] = useState('local-learned-geometry')
   const [learnedPrimaryPly, setLearnedPrimaryPly] = useState('points.ply')
-  const [learnedRuntimeAdapter, setLearnedRuntimeAdapter] = useState('local-learned-runtime')
+  const [learnedRuntimeAdapter, setLearnedRuntimeAdapter] = useState('vggt')
   const [learnedMaxFrames, setLearnedMaxFrames] = useState('12')
   const [learnedFrameStep, setLearnedFrameStep] = useState('1')
   const [learnedImageMaxSize, setLearnedImageMaxSize] = useState('768')
